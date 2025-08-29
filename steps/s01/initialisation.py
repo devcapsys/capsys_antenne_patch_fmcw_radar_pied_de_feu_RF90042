@@ -6,10 +6,12 @@ if __name__ == "__main__":
     if BASE_DIR not in sys.path:
         sys.path.insert(0, BASE_DIR)
 from datetime import datetime
-import json
+import json, time
+from modules.capsys_serial_instrument_manager.mp730424.multimeter_mp730424 import Mp730424Manager  # Custom
+from modules.capsys_serial_instrument_manager.rsd3305p import alimentation_rsd3305p  # Custom
 import configuration  # Custom
 from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseManager, DatabaseConfig, Operator) # Custom
-from configuration import get_project_path
+from configuration import VERSION, get_project_path
 
 def get_info():
     return "Cette étape crée device_under_test, initialise le DAQ, l'alimentation et le MCP23017."    
@@ -17,34 +19,34 @@ def get_info():
 def init_database_and_checks(log, config: configuration.AppConfig):
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
-        return 1, "Erreur : config.db n'est pas initialisé."
+        return 1, "config.db n'est pas initialisé."
     # Checks that all attributes of config.arg are not empty
     for field, value in vars(config.arg).items():
         if value is None:
-            return 1, f"Erreur : pas de valeur sur {field}"
+            return 1, f"Pas de valeur sur {field}"
 
     # Check operator format
     if not isinstance(config.arg.operator, str) or len(config.arg.operator.split()) < 2:
-        return (1, "Erreur : le champ 'operator' doit contenir au moins un prénom et un nom.")
+        return (1, "Le champ 'operator' doit contenir au moins un prénom et un nom.")
 
     # Retrieve operator from database
     operators = config.db.get_by_column("operator", "name", config.arg.operator.split()[1])
     if not operators:
-        return 1, f"Erreur : Aucun opérateur {config.arg.operator.split()[1]} trouvé dans la base de données."
+        return 1, f"Aucun opérateur {config.arg.operator.split()[1]} trouvé dans la base de données."
     operator = Operator(**operators[0])
     operator_id = operator.id
 
     # Retrieve product_list from database
     product_list_data = config.db.get_by_id("product_list", config.arg.product_list_id)
     if not product_list_data:
-        return 1, "Erreur : Aucun produit trouvé dans la base de données."
+        return 1, "Aucun produit trouvé dans la base de données."
 
     # Retrieve bench_composition from database
     bench_compisition_id = product_list_data.get("bench_composition_id")
     bench_composition_raw = config.db.get_by_column("bench_composition", "id", bench_compisition_id)
     bench_composition = bench_composition_raw if bench_composition_raw else []
     if not bench_composition:
-        return (1, "Erreur : Problème lors de la récupération de la composition du banc dans la base de données.")
+        return (1, "Problème lors de la récupération de la composition du banc dans la base de données.")
 
     # Retrieve all externals devices from database
     external_devices = []
@@ -53,12 +55,12 @@ def init_database_and_checks(log, config: configuration.AppConfig):
         if external_device_data:
             external_devices.append(external_device_data)
     if not external_devices:
-        return (1, "Erreur : Problème lors de la récupération des périphériques externes dans la base de données.")
+        return (1, "Problème lors de la récupération des périphériques externes dans la base de données.")
 
     # Retrieve script from database
     script_data = config.db.get_by_id("script", config.arg.product_list_id)
     if not script_data:
-        return (1, "Erreur : Problème lors de la récupération du script dans la base de données.")
+        return (1, "Problème lors de la récupération du script dans la base de données.")
     # Remove the "file" key if it exists because it's too large to store in the database
     if "file" in script_data:
         del script_data["file"]
@@ -69,7 +71,7 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     parameters_group_raw = config.db.get_by_column("parameters_group", "parameters_group_id", parameters_group_id)
     parameters_group = parameters_group_raw if parameters_group_raw else []
     if not parameters_group:
-        return (1, "Erreur : Problème lors de la récupération des groupes de paramètres dans la base de données.")
+        return (1, "Problème lors de la récupération des groupes de paramètres dans la base de données.")
 
     # Retrieve all parameters from database
     parameters = []
@@ -78,15 +80,15 @@ def init_database_and_checks(log, config: configuration.AppConfig):
         if parameters_data:
             parameters.append(parameters_data)
     if not parameters:
-        return (1, "Erreur : Problème lors de la récupération des paramètres dans la base de données.")
+        return (1, "Problème lors de la récupération des paramètres dans la base de données.")
 
-    # Retrieve and save config_debug.json from database
-    # config_debug.json is used to store values used during the test
+    # Retrieve and save config_radar.json from database
+    # config_radar.json is used to store values used during the test
     data_str = None
     txt = ""
     for parameter in parameters:
         data = parameter  # parameter is already a dictionary
-        config_json_name = "config_debug"
+        config_json_name = "config_antenne_patch_radar_doppler_RF90040"
         if configuration.VERSION == "DEBUG":
             config_json_name = "config"
         if data.get("name") == config_json_name:
@@ -94,19 +96,29 @@ def init_database_and_checks(log, config: configuration.AppConfig):
             txt = f"Le fichier de config utilisé correspond à la ligne id={data.get('id')} de la table parameters"
             log(txt, "blue")
     if data_str == None:
-        return (1, "Erreur : Le fichier config_debug n'est pas présent dans la ddb.")
-    with open(get_project_path("assets", "config_debug.json"), "wb") as f:
-        f.write(data_str)
-
-    # Added reading of config_debug.json file and storing in configJson
+        return (1, "Le fichier config_radar n'est pas présent dans la ddb.")
+    
+    # Write and read config_radar.json file with proper exception handling
+    config_path = get_project_path("assets", "config_radar.json")
     configJson = {}
     try:
-        with open(get_project_path("assets", "config_debug.json"), 'r', encoding='utf-8') as json_file:
+        # Write the config file
+        with open(config_path, "wb") as f:
+            f.write(data_str)
+        
+        # Read the config file immediately after writing
+        with open(config_path, 'r', encoding='utf-8') as json_file:
             configJson = json.load(json_file)
     except Exception as e:
-        return 1, f"Erreur lors du chargement de config_debug.json : {e}"
+        # Clean up the file if it was created but reading failed
+        try:
+            if os.path.exists(config_path):
+                os.remove(config_path)
+        except Exception as cleanup_error:
+            log(f"Problème lors du nettoyage du fichier config : {cleanup_error}", "yellow")
+        return 1, f"Problème lors de la création/lecture de config_radar.json : {e}"
 
-    # Initialize configItems attributes from the config JSON mapping pins and keys from config_debug.json in ddb
+    # Initialize configItems attributes from the config JSON mapping pins and keys from config_radar.json in ddb
     config.configItems.init_config_items(configJson)
 
     # Create device_under_test
@@ -129,6 +141,8 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     step_name_id = config.db.create("step_name",
         {"device_under_test_id": config.device_under_test_id, "step_name": os.path.splitext(os.path.basename(__file__))[0]}
     )
+
+    config.save_value(step_name_id, "VERSION", VERSION)
 
     # Create the data dictionary to be inserted into step_key_val_pairs
     data = {

@@ -83,6 +83,13 @@ class AppConfig:
         self.configItems = ConfigItems()
         atexit.register(self.cleanup) # Register cleanup function to be called on exit
 
+    def save_value(self, step_name_id: int, key: str, value: str, unit: str = ""):
+        """Save a key-value pair in the database."""
+        if not self.db or not self.device_under_test_id:
+            raise ValueError("Database or device under test ID is not initialized.")
+        self.db.create("step_key_val_pairs",
+                       {"step_name_id": step_name_id, "key": key, "val_char": value, "unit": unit})
+        
     def cleanup(self):
         if self.db:
             self.db.disconnect()

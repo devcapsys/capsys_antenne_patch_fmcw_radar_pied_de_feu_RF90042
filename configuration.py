@@ -2,8 +2,6 @@ import os
 from typing import Optional
 import atexit
 from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseManager, DatabaseConfig) # Custom
-# from modules.capsys_daq_manager.capsys_daq_manager import DAQManager  # Custom
-# from modules.capsys_mcp23017.capsys_mcp23017 import MCP23017  # Custom
 # from modules.capsys_serial_instrument_manager.ka3005p import alimentation_ka3005p  # Custom
 
 # Initialize global variables

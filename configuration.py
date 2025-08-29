@@ -5,7 +5,7 @@ from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseMa
 # from modules.capsys_serial_instrument_manager.ka3005p import alimentation_ka3005p  # Custom
 
 # Initialize global variables
-NAME = "TEMPLATE"
+NAME = "Test antenne patch FMCW radar pied de feu RF90042"
 AUTHOR = "Thomas GERARDIN"
 CURRENTH_PATH = os.path.dirname(__file__)
 VERSION = "DEBUG"  # Will be replaced by the Git hash when compiled with command .\build.bat

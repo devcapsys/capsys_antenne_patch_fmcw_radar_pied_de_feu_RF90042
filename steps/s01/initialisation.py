@@ -9,6 +9,7 @@ from datetime import datetime
 import json, time
 from modules.capsys_serial_instrument_manager.mp730424.multimeter_mp730424 import Mp730424Manager  # Custom
 from modules.capsys_serial_instrument_manager.rsd3305p import alimentation_rsd3305p  # Custom
+from modules.capsys_serial_instrument_manager.kts1.cible_kts1 import Kts1Manager  # Custom
 import configuration  # Custom
 from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseManager, DatabaseConfig, Operator) # Custom
 from configuration import VERSION, get_project_path
@@ -175,12 +176,180 @@ def init_database_and_checks(log, config: configuration.AppConfig):
 
     return 0, step_name_id
 
+def init_target(log, config: configuration.AppConfig):
+    config.target = None
+    log("Initialisation de la cible...", "cyan")
+    target = Kts1Manager(debug=config.arg.show_all_logs)
+    port = config.configItems.target.port
+    try:
+        if target.open_with_usb_name_and_sn(usb_name="USB Serial Port", sn="21260003", start_with_port=port):
+            log(f"{target.identification()}", "blue")
+        else:
+            return 1, "Impossible de se connecter à la cible KTS1."
+    except Exception as e:
+        log(f"Error: {e}", "red")
+        return 1, f"Problème lors de l'initialisation de la cible : {e}"
+    # At this point, kts1 is good so we put it in the global config
+    config.target = target
+
+    config.target.send_command_and_clean_answer("a0", "a0")
+    config.target.send_command_and_clean_answer("t0", "t0")
+    config.target.send_command_and_clean_answer("c0", "c0")
+    config.target.send_command_and_clean_answer("g9999", expected_response="g9999") # Set target frequency at 9999 Hz
+    log("Cible initialisée avec succès et mise à 9999Hz.", "blue")
+
+    return 0, "Cible initialisée avec succès."
+
+def init_multimeter_current(log, config: configuration.AppConfig):
+    config.multimeter_current = None
+    log("Initialisation du multimètre en courant...", "cyan")
+    multimeter = Mp730424Manager(debug=config.arg.show_all_logs)
+    port = config.configItems.multimeter_current.port
+    try:
+        if multimeter.open_with_usb_name_and_sn(usb_name="USB Serial Port", sn="24140443", start_with_port=port):
+            log(multimeter.identification(), "blue")
+            multimeter.reset()
+            multimeter.system_remote()
+            multimeter.conf_curr_dc()
+            multimeter.send_command("RANGE:DCI 5\n")
+            multimeter.send_command("RATE F\n")
+        else:
+            return 1, "Impossible de se connecter au multimètre MP730424."
+    except Exception as e:
+        return 1, f"Problème lors de l'initialisation du multimètre : {e}"
+    # At this point, multimeter_current is good so we put it in the global config
+    config.multimeter_current = multimeter
+    return 0, "Multimètre initialisé avec succès."
+
+def init_alimentation(log, config: configuration.AppConfig):
+    config.alim = None
+    log("Initialisation de l'alimentation...", "cyan")
+    alim = alimentation_rsd3305p.Rsd3305PManager(debug=config.arg.show_all_logs)
+    port = config.configItems.alim.port
+    try:
+        if alim.open_with_usb_name_and_sn("Périphérique série USB", "29599382", start_with_port=port):
+            log(f"{alim.identification()}", "blue")
+            alim.set_output(1, False)
+            alim.set_output(2, False)
+            alim.set_tracking_mode(0)
+            alim.set_voltage(2, 12.00)
+            alim.set_current(2, 0.5)
+        else:
+            return 1, "Impossible de se connecter à l'alimentation RSD3305P."
+    except Exception as e:
+        return 1, f"Problème lors de l'initialisation de l'alimentation : {e}"
+    # At this point, alim is good so we put it in the global config
+    config.alim = alim
+    return 0, "Alimentation initialisée avec succès."
+
+def init_patch(log, config: configuration.AppConfig, step_name_id):
+    config.serial_patch = None
+    log("Initialisation du patch...", "cyan")
+    # Ensure that the alim is initialized
+    if config.alim == None:
+        return 1, "L'alimentation n'est pas initialisée ou connectée."
+    try:
+        config.alim.set_output(2, False)
+        time.sleep(0.5)
+        config.alim.set_output(2, True)
+        time.sleep(0.1)  # Wait for dut to stabilize
+        voltage1 = config.alim.read_output_voltage(2)
+        current1 = config.alim.read_output_current(2)
+        log(f"Alim CH2 : {voltage1}V, {current1}A", "blue")
+        config.serial_patch = configuration.SerialPatch()
+        if configuration.VERSION == "DEBUG":
+            log("En mode DEBUG, il faut bien penser à changer le port.", "cyan")
+            port = "COM26" # PC TGE
+        else:
+            port = config.configItems.serial_patch.port
+        config.serial_patch.open_with_port(port)
+        log(f"Patch ouvert sur : {config.serial_patch.port}", "blue")
+    except Exception as e:
+        return 1, f"Problème lors de l'initialisation du patch : {e}"
+    return 0, "Patch initialisée avec succès."
+
 def run_step(log, config: configuration.AppConfig):
+    step_name = os.path.splitext(os.path.basename(__file__))[0]
     log(f"show_all_logs = {config.arg.show_all_logs}", "blue")
     status, step_name_id = init_database_and_checks(log, config)
     if status != 0:
-        return status, step_name_id
-    return 0, "Initialisation OK"
+        return status, f"{step_name} : {step_name_id}"
+
+    try:
+        multimeter_is_open = (config.multimeter_current is not None and 
+                             getattr(getattr(config.multimeter_current, 'ser', None), 'is_open', False))
+    except (AttributeError, TypeError):
+        multimeter_is_open = False
+        
+    if not multimeter_is_open:
+        status, message = -1, "Erreur inconnue lors de l'initialisation du multimètre courant."
+        status, message = init_multimeter_current(log, config)
+        log(message, "blue")
+        if status != 0:
+            if config.multimeter_current is not None:
+                config.multimeter_current.close()
+            config.multimeter_current = None
+            return status, f"{step_name} : {message}"
+    else:
+        log("Le multimètre en courant est déjà initialisé.", "blue")
+
+    try:
+        alim_is_open = (config.alim is not None and 
+                       getattr(getattr(config.alim, 'ser', None), 'is_open', False))
+    except (AttributeError, TypeError):
+        alim_is_open = False
+        
+    if not alim_is_open:
+        status, message = -1, "Erreur inconnue lors de l'initialisation de l'alimentation."
+        status, message = init_alimentation(log, config)
+        log(message, "blue")
+        if status != 0:
+            if config.alim is not None:
+                config.alim.close()
+            config.alim = None
+            return status, f"{step_name} : {message}"
+    else:
+        log("L'alimentation est déjà initialisée.", "blue")
+
+    try:
+        patch_is_open = (config.serial_patch is not None and 
+                        getattr(getattr(config.serial_patch, 'ser', None), 'is_open', False))
+    except (AttributeError, TypeError):
+        patch_is_open = False
+        
+    if not patch_is_open:
+        status, message = init_patch(log, config, step_name_id)
+        log(message, "blue")
+        if status != 0:
+            if config.serial_patch is not None:
+                config.serial_patch.close()
+            config.serial_patch = None
+            return status, f"{step_name} : {message}"
+    else:
+        log("Le patch est déjà initialisé.", "blue")
+
+    try:
+        target_is_open = (config.target is not None and 
+                         getattr(getattr(config.target, 'ser', None), 'is_open', False))
+    except (AttributeError, TypeError):
+        target_is_open = False
+        
+    if not target_is_open:
+        status, message = init_target(log, config)
+        log(message, "blue")
+        if status != 0:
+            if config.target is not None:
+                config.target.close()
+            config.target = None
+            return status, f"{step_name} : {message}"
+    else:
+        log("La cible est déjà initialisée.", "blue")
+
+    if config.serial_patch is None:
+        return 1, f"{step_name} : le patch n'est pas initialisé."
+    log(f"Envoie de la commande \"test power on\" : {config.serial_patch.send_command('test power on\r', expected_response='ok', timeout=15)}", "blue")
+
+    return 0, f"{step_name} : OK"
 
 
 if __name__ == "__main__":

@@ -61,11 +61,39 @@ class ConfigItems:
         def __init__(
             self,
             key = "",
-            port = ""
+            port = "",
+            minimum = 0.0,
+            maximum = 0.0,
+            power_min = 0.0,
+            power_max = 0.0,
+            offset_power = 0.0,
+            min_map = [],
+            max_map = [],
+            save_prefix_map = [],
+            units_map = [],
+            unit = "",
+            cmd = "",
+            expected_prefix = "",
+            replace_map = {},
+            timeout = 0
         ):
             """Initialize a ConfigItem with optional parameters for test configuration."""
             self.key = key
             self.port = port
+            self.minimum = minimum
+            self.maximum = maximum
+            self.power_min = power_min
+            self.power_max = power_max
+            self.offset_power = offset_power
+            self.min_map = min_map
+            self.max_map = max_map
+            self.save_prefix_map = save_prefix_map
+            self.units_map = units_map
+            self.unit = unit
+            self.cmd = cmd
+            self.expected_prefix = expected_prefix
+            self.replace_map = replace_map
+            self.timeout = timeout
     
     def __init__(self):
         """Initialize all ConfigItem attributes for different test parameters."""
@@ -73,6 +101,11 @@ class ConfigItems:
         self.multimeter_current = self.ConfigItem()
         self.alim = self.ConfigItem()
         self.serial_patch = self.ConfigItem()
+        self.thresholds = self.ConfigItem()
+        self.tx = self.ConfigItem()
+        self.current_tx = self.ConfigItem()
+        self.frequency_tx = self.ConfigItem()
+        self.current_standby = self.ConfigItem()
 
 class Arg:
     name = NAME
@@ -120,3 +153,63 @@ class AppConfig:
             self.db.disconnect()
             self.db = None
         self.device_under_test_id = None
+
+    def run_meas_on_patch(
+        self,
+        log,
+        step_name_id,
+        min_values,
+        max_values,
+        command_to_send,
+        expected_prefix,
+        save_key_prefix = "",
+        seuil_unit_map = {},
+        timeout=4,
+        replace_map={},
+        fct=None
+    ):
+        if self.serial_patch is None:
+            return 1, "Erreur : le patch n'est pas initialisé."
+        log(f"Envoi de la commande : \"{command_to_send}\"", "blue")
+        response = self.serial_patch.send_command(command_to_send, timeout=timeout)
+        log(f"Réponse du patch : {response}", "blue")
+        response = fct(response) if fct else response
+        if not response.startswith(expected_prefix):
+            self.serial_patch.close()
+            self.serial_patch = None
+            return 1, f"Réponse inattendue du patch \"{command_to_send}\". Le port est fermé."
+        # Appliquer les remplacements
+        for k, v in replace_map.items():
+            response = response.replace(k, v)
+        response = response.strip()
+        values = []
+        valides = True
+        expected_values_count = len(min_values)
+        for i, val in enumerate(response.split(" ")):
+            if val.strip():
+                try:
+                    val_float = float(val.strip())
+                except ValueError:
+                    log(f"{i+1} : valeur non numérique '{val.strip()}'", "red")
+                    valides = False
+                    break
+                if i < expected_values_count:
+                    if min_values[i] <= val_float <= max_values[i]:
+                        log(f"{i+1} : {val_float} (OK ; min={min_values[i]} ; max={max_values[i]})", "blue")
+                        values.append(val_float)
+                    else:
+                        log(f"{i+1} : {val_float} (NOK ; min={min_values[i]} ; max={max_values[i]})", "red")
+                        values.append(val_float)
+                        valides = False
+        
+        # Save all valid values, even on error
+        if save_key_prefix != "":
+            for i, val_float in enumerate(values):
+                key = save_key_prefix[i] if isinstance(save_key_prefix, list) and i < len(save_key_prefix) else f"val{i+1}"
+                unit = seuil_unit_map[i]
+                self.save_value(step_name_id, key, str(val_float), unit)
+
+        if valides:
+            return 0, "Mesure réussie."
+        else:
+            return 1, f"Erreur : hors limites ou non numérique."

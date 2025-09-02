@@ -120,7 +120,7 @@ class Arg:
     password = "root"
     host = "127.0.0.1"
     port = "3306"
-    database = "mysqltest"
+    database = "capsys_db_bdt"
     product_list: Optional[list[str]] = None
     parameters_group: list[str] = []
     external_devices: Optional[list[str]] = None

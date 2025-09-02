@@ -578,7 +578,7 @@ def main():
         # config.arg.password = "root"
         # config.arg.host = "127.0.0.1"
         # config.arg.port = "3306"
-        # config.arg.database = "mysqltest"
+        # config.arg.database = "capsys_db_bdt"
     else:
         print("Arguments fournis, utilisation des paramètres de la ligne de commande.")
         config.arg.operator = sys.argv[1]

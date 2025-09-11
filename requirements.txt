@@ -1,5 +1,0 @@
-# Dépendances principales pour CAPSYS Banc de Test
-PyQt6>=6.9.1
-mysql-connector-python>=9.3.0
-reportlab>=4.0.9
-pyinstaller>=6.14.1

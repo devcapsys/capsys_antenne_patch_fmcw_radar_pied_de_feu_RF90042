@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Gestionnaire de version
-Gère la mise à jour de la version avec le hash Git et la remise à DEBUG
+Gère la mise à jour du hash Git et la remise à DEBUG
 """
 
 import subprocess
@@ -88,8 +88,8 @@ def get_git_hash():
     return git_hash
 
 
-def update_version_in_file(new_version):
-    """Met à jour la variable VERSION dans configuration.py"""
+def update_hash_git_in_file(new_hash):
+    """Met à jour la variable HASH_GIT dans configuration.py"""
     configuration_py_path = "configuration.py"
     
     if not os.path.exists(configuration_py_path):
@@ -101,32 +101,32 @@ def update_version_in_file(new_version):
         with open(configuration_py_path, 'r', encoding='utf-8') as file:
             content = file.read()
         
-        # Remplacer la ligne VERSION
-        pattern = r'VERSION\s*=\s*["\'][^"\']*["\']'
-        replacement = f'VERSION = "{new_version}"'
+        # Remplacer la ligne HASH_GIT
+        pattern = r'HASH_GIT\s*=\s*["\'][^"\']*["\']'
+        replacement = f'HASH_GIT = "{new_hash}"'
         
         new_content = re.sub(pattern, replacement, content)
         
         if new_content == content:
-            print(f"Attention: La variable VERSION n'a pas été trouvée ou était déjà à {new_version}")
+            print(f"Attention: La variable HASH_GIT n'a pas été trouvée ou était déjà à {new_hash}")
             return True
         
         # Écrire le nouveau contenu
         with open(configuration_py_path, 'w', encoding='utf-8') as file:
             file.write(new_content)
         
-        print(f"✓ VERSION mise à jour avec: {new_version}")
+        print(f"✓ HASH_GIT mise à jour avec: {new_hash}")
         return True
         
     except Exception as e:
-        print(f"Erreur lors de la mise à jour de VERSION: {e}")
+        print(f"Erreur lors de la mise à jour de HASH_GIT: {e}")
         return False
 
 
-def set_git_version():
-    """Met à jour la version avec le hash Git (pour avant compilation)"""
-    print("=== Mise à jour de la version avec le hash Git ===")
-    
+def set_git_hash_git():
+    """Met à jour HASH_GIT avec le hash Git (pour avant compilation)"""
+    print("=== Mise à jour de HASH_GIT avec le hash Git ===")
+
     # Vérifier l'état Git
     if not check_git_status():
         print("\n❌ Mise à jour annulée - Repository Git non à jour")
@@ -138,31 +138,31 @@ def set_git_version():
         print("\n❌ Mise à jour annulée - Impossible de récupérer le hash Git")
         return False
     
-    # Mettre à jour la version
-    if not update_version_in_file(git_hash):
-        print("\n❌ Mise à jour annulée - Impossible de mettre à jour VERSION")
+    # Mettre à jour HASH_GIT
+    if not update_hash_git_in_file(git_hash):
+        print("\n❌ Mise à jour annulée - Impossible de mettre à jour HASH_GIT")
         return False
-    
-    print("\n✅ Version mise à jour avec le hash Git")
+
+    print("\n✅ HASH_GIT mise à jour avec le hash Git")
     return True
 
 
-def set_debug_version():
-    """Remet la version à DEBUG (pour après compilation)"""
-    print("=== Remise de la version à DEBUG ===")
-    
-    if not update_version_in_file("DEBUG"):
+def set_debug_hash_git():
+    """Remet le HASH_GIT à DEBUG (pour après compilation)"""
+    print("=== Remise de HASH_GIT à DEBUG ===")
+
+    if not update_hash_git_in_file("DEBUG"):
         print("\n❌ Erreur lors de la remise à DEBUG")
         return False
-    
-    print("\n✅ Version remise à DEBUG")
+
+    print("\n✅ HASH_GIT remis à DEBUG")
     return True
 
 
 def main():
     """Fonction principale avec gestion des arguments"""
     parser = argparse.ArgumentParser(
-        description="Gestionnaire de version pour CAPSYS Banc De Test"
+        description="Gestionnaire de HASH_GIT pour CAPSYS Banc De Test"
     )
     parser.add_argument(
         "action",
@@ -174,10 +174,10 @@ def main():
     success = False
     
     if args.action == "git":
-        success = set_git_version()
+        success = set_git_hash_git()
     elif args.action == "debug":
-        success = set_debug_version()
-    
+        success = set_debug_hash_git()
+
     sys.exit(0 if success else 1)
 
 

@@ -24,7 +24,7 @@ def run_step(log, config: configuration.AppConfig):
     success = 0
     
     # delete config.json file
-    config_file_path = get_project_path("assets", "Config.json")
+    config_file_path = get_project_path("config.json")
     if os.path.exists(config_file_path):
         os.remove(config_file_path)
         log("Fichier config.json supprimé.", "blue")

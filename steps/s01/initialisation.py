@@ -83,8 +83,8 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     if not parameters:
         return (1, "Problème lors de la récupération des paramètres dans la base de données.")
 
-    # Retrieve and save config_radar.json from database
-    # config_radar.json is used to store values used during the test
+    # Retrieve and save config.json from database
+    # config.json is used to store values used during the test
     data_str = None
     txt = ""
     for parameter in parameters:
@@ -97,10 +97,10 @@ def init_database_and_checks(log, config: configuration.AppConfig):
             txt = f"Le fichier de config utilisé correspond à la ligne id={data.get('id')} de la table parameters"
             log(txt, "blue")
     if data_str == None:
-        return (1, "Le fichier config_radar n'est pas présent dans la ddb.")
+        return (1, "Le fichier config n'est pas présent dans la ddb.")
     
-    # Write and read config_radar.json file with proper exception handling
-    config_path = get_project_path("assets", "config_radar.json")
+    # Write and read config.json file with proper exception handling
+    config_path = get_project_path("config.json")
     configJson = {}
     try:
         # Write the config file
@@ -117,9 +117,9 @@ def init_database_and_checks(log, config: configuration.AppConfig):
                 os.remove(config_path)
         except Exception as cleanup_error:
             log(f"Problème lors du nettoyage du fichier config : {cleanup_error}", "yellow")
-        return 1, f"Problème lors de la création/lecture de config_radar.json : {e}"
+        return 1, f"Problème lors de la création/lecture de config.json : {e}"
 
-    # Initialize configItems attributes from the config JSON mapping pins and keys from config_radar.json in ddb
+    # Initialize configItems attributes from the config JSON mapping pins and keys from config.json in ddb
     config.configItems.init_config_items(configJson)
 
     # Create device_under_test
@@ -143,9 +143,13 @@ def init_database_and_checks(log, config: configuration.AppConfig):
         {"device_under_test_id": config.device_under_test_id, "step_name": os.path.splitext(os.path.basename(__file__))[0]}
     )
 
-    config.save_value(step_name_id, "VERSION", VERSION)
+    config.db.create("skvp_char", {
+        "step_name_id": step_name_id,
+        "key": "VERSION",
+        "val_char": VERSION,
+    })
 
-    # Create the data dictionary to be inserted into step_key_val_pairs
+    # Create the data dictionary to be inserted into skvp_json
     data = {
         "device_under_test_id": config.device_under_test_id,
         "operator": operator.to_dict() if hasattr(operator, 'to_dict') else vars(operator),
@@ -157,20 +161,20 @@ def init_database_and_checks(log, config: configuration.AppConfig):
         "parameters": parameters,               # already a list of dictionaries
     }
 
-    # Insert the data into step_key_val_pairs
+    # Insert the data into skvp_json
     config.db.create(
-        "step_key_val_pairs", {
+        "skvp_json", {
             "step_name_id": step_name_id,
             "key": "data_used_for_test",
-            "val_json": json.dumps(data, indent=4, ensure_ascii=False, default=str)
+            "val_json": json.dumps(data, indent=4, ensure_ascii=False, default=str),
         }
     )
     
     config.db.create(
-        "step_key_val_pairs", {
+        "skvp_char", {
             "step_name_id": step_name_id,
             "key": "id_fichier_config",
-            "val_char": txt
+            "val_char": txt,
         }
     )
 

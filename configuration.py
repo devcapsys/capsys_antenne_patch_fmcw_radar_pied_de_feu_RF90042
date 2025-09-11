@@ -8,11 +8,11 @@ from modules.capsys_serial_instrument_manager.rsd3305p import alimentation_rsd33
 from modules.capsys_serial_instrument_manager.kts1.cible_kts1 import Kts1Manager  # Custom
 
 # Initialize global variables
-NAME = "Test antenne patch FMCW radar pied de feu RF90042"
-AUTHOR = "Thomas GERARDIN"
 CURRENTH_PATH = os.path.dirname(__file__)
-VERSION = "DEBUG"  # Will be replaced by the Git hash when compiled with command .\build.bat
-VERSION_USER = "V0.0.1 ; Commit : " + VERSION
+NAME_GUI = "Test antenne patch FMCW radar pied de feu RF90042"
+VERSION = "V1.0.0"
+HASH_GIT = "DEBUG" # Will be replaced by the Git hash when compiled with command .\build.bat
+AUTHOR = "Thomas GERARDIN"
 
 def get_project_path(*paths):
     """Return the absolute path from the project root, regardless of current working directory."""
@@ -108,7 +108,10 @@ class ConfigItems:
         self.current_standby = self.ConfigItem()
 
 class Arg:
-    name = NAME
+    name = NAME_GUI
+    version = VERSION
+    hash_git = HASH_GIT
+    author = AUTHOR
     show_all_logs = False
     operator = AUTHOR
     commande = ""
@@ -129,7 +132,6 @@ class Arg:
 class AppConfig:
     def __init__(self):
         self.arg = Arg()
-        self.VERSION = VERSION_USER
         self.db_config: Optional[DatabaseConfig] = None
         self.db: Optional[GenericDatabaseManager] = None
         self.device_under_test_id: Optional[int] = None

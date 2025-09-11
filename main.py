@@ -168,8 +168,8 @@ class MainWindow(QWidget):
         os.makedirs(log_dir, exist_ok=True)
         today = datetime.now().strftime("%Y-%m-%d")
         self.log_file_path = os.path.join(log_dir, f"log_{today}.txt")
-        self.setWindowTitle(f"{config.arg.name} - Version : {getattr(config, 'VERSION', 'Version non disponible')}")
-        self.setWindowIcon(QIcon(configuration.CURRENTH_PATH + "\\assets\\logo-big.png"))
+        self.setWindowTitle(f"{config.arg.name} - Version : {config.arg.version} - Commit : {config.arg.hash_git} - Auteur : {config.arg.author}")
+        self.setWindowIcon(QIcon(configuration.CURRENTH_PATH + "\\logo-big.png"))
 
         self.steps_widgets = []
         self.step_infos = []
@@ -420,18 +420,69 @@ class MainWindow(QWidget):
 
     def show_info(self):
         """Show a legend dialog explaining the color codes and metadata."""
-        legend = (
-            f'<span style="color: purple;">Version </span> : {configuration.VERSION}<br>'
-            f'<span style="color: purple;">Auteur</span> : {configuration.AUTHOR}<br>'
-            '<span style="color: white;">Blanc</span> : Message général<br>'
-            '<span style="color: yellow;">Jaune</span> : Warning<br>'
-            '<span style="color: cyan;">Cyan</span> : Nom d\'étapes de test<br>'
-            '<span style="color: blue;">Bleu</span> : Message provenant d\'une étape de test<br>'
-            '<span style="color: green;">Vert</span> : Succès<br>'
-            '<span style="color: orange;">Orange</span> : Étape sautée<br>'
-            '<span style="color: red;">Rouge</span> : Échec<br><br>'
-        )
-        QMessageBox.information(self, "Informations", legend)
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton
+        from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
+        from PyQt6.QtCore import Qt
+        
+        # Create a custom dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Informations")
+        dialog.setModal(True)
+        dialog.resize(400, 300)
+        
+        layout = QVBoxLayout()
+        
+        # Create a text widget for colored display
+        info_text = QTextEdit()
+        info_text.setReadOnly(True)
+        
+        # Add the information with colors
+        cursor = info_text.textCursor()
+        
+        # Version info
+        version_format = QTextCharFormat()
+        version_format.setForeground(QColor("#ff00ff"))  # Purple
+        version_format.setFontWeight(700)
+        cursor.insertText("Version : ", version_format)
+        
+        normal_format = QTextCharFormat()
+        normal_format.setForeground(QColor("#ffffff"))
+        cursor.insertText(f"{configuration.VERSION}\n", normal_format)
+        
+        cursor.insertText("Auteur : ", version_format)
+        cursor.insertText(f"{configuration.AUTHOR}\n\n", normal_format)
+        
+        # Color legend
+        legend_title_format = QTextCharFormat()
+        legend_title_format.setForeground(QColor("#ffffff"))
+        legend_title_format.setFontWeight(700)
+        cursor.insertText("Légende des couleurs :\n\n", legend_title_format)
+        
+        color_entries = [
+            ("Blanc", "#ffffff", "Message général"),
+            ("Jaune", "#ffff00", "Warning"),
+            ("Cyan", "#00ffff", "Nom d'étapes de test"),
+            ("Bleu", "#4da6ff", "Message provenant d'une étape de test"),
+            ("Vert", "#00ff00", "Succès"),
+            ("Orange", "#ffa500", "Étape sautée"),
+            ("Rouge", "#ff4444", "Échec")
+        ]
+        
+        for color_name, color_code, description in color_entries:
+            color_format = QTextCharFormat()
+            color_format.setForeground(QColor(color_code))
+            cursor.insertText(f"{color_name}", color_format)
+            cursor.insertText(f" : {description}\n", normal_format)
+        
+        layout.addWidget(info_text)
+        
+        # Add OK button
+        ok_button = QPushButton("OK")
+        ok_button.clicked.connect(dialog.accept)
+        layout.addWidget(ok_button)
+        
+        dialog.setLayout(layout)
+        dialog.exec()
 
     def start_test(self):
         """Start the test sequence by launching the test thread and resetting the UI."""
@@ -515,9 +566,38 @@ class MainWindow(QWidget):
 
     def append_log(self, message, color="white"):
         """Append a log message to the log area and save it to the log file."""
+        from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
+        
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        html_message = f'<span style="color: {color};">[{now}]</span> {message}'
-        self.log_area.append(html_message)
+        
+        # Get the cursor and move to the end
+        cursor = self.log_area.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        
+        # Format for the timestamp (always in gray)
+        timestamp_format = QTextCharFormat()
+        timestamp_format.setForeground(QColor("#888888"))
+        cursor.insertText(f"[{now}] ", timestamp_format)
+        
+        # Format for the message (with specified color)
+        message_format = QTextCharFormat()
+        color_map = {
+            "white": "#ffffff",
+            "yellow": "#ffff00",
+            "cyan": "#00ffff",
+            "blue": "#4da6ff",
+            "green": "#00ff00",
+            "orange": "#ffa500",
+            "red": "#ff4444",
+            "purple": "#ff00ff"
+        }
+        message_color = color_map.get(color, "#ffffff")
+        message_format.setForeground(QColor(message_color))
+        cursor.insertText(f"{message}\n", message_format)
+        
+        # Scroll to the bottom
+        self.log_area.setTextCursor(cursor)
+        self.log_area.ensureCursorVisible()
 
         # Saving to file
         plain_message = f"[{now}] {message}\n"
@@ -529,6 +609,8 @@ class MainWindow(QWidget):
 
     def test_finished(self):
         """Handle the end of the test sequence, update the log, and store results in the database."""
+        from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
+        
         all_success = all(label_status.text() == "✅" for _, label_status in self.steps_widgets)
         any_error = any(label_status.text() == "❌" for _, label_status in self.steps_widgets)
 
@@ -544,9 +626,29 @@ class MainWindow(QWidget):
             color = "yellow"
             message = "Test interrompu ou étape sautée"
 
-        html_message = f'<span style="color: {color};">[{now}]</span> {message}'
-        self.log_area.append(html_message)
-        self.log_area.append("")
+        # Add the final message with color formatting
+        cursor = self.log_area.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        
+        # Format for the timestamp
+        timestamp_format = QTextCharFormat()
+        timestamp_format.setForeground(QColor("#888888"))
+        cursor.insertText(f"[{now}] ", timestamp_format)
+        
+        # Format for the final message
+        message_format = QTextCharFormat()
+        color_map = {
+            "green": "#00ff00",
+            "red": "#ff4444",
+            "yellow": "#ffff00"
+        }
+        message_color = color_map.get(color, "#ffffff")
+        message_format.setForeground(QColor(message_color))
+        cursor.insertText(f"{message}\n\n", message_format)
+        
+        self.log_area.setTextCursor(cursor)
+        self.log_area.ensureCursorVisible()
+        
         log_text = self.log_area.toPlainText()
         try:
             config.db.create("log", {"device_under_test_id": config.device_under_test_id, "value": log_text})  # type: ignore[attr-defined]
@@ -607,19 +709,30 @@ def main():
     """Launch the GUI"""
     app = QApplication(sys.argv)
     
-    # Load dark theme from CSS file
-    css_file_path = os.path.join(os.path.dirname(__file__), "assets", "dark_theme.css")
-    try:
-        with open(css_file_path, "r", encoding="utf-8") as css_file:
-            dark_style = css_file.read()
-        app.setStyleSheet(dark_style)
-    except FileNotFoundError:
-        print(f"Fichier CSS non trouvé : {css_file_path}")
-        print("Application du thème par défaut.")
-    except Exception as e:
-        print(f"Erreur lors du chargement du CSS : {e}")
-        print("Application du thème par défaut.")
+    # Define application style with a modern dark theme
+    app.setStyle('Fusion')
     
+    # Set a modern dark palette
+    from PyQt6.QtGui import QPalette, QColor
+    
+    dark_palette = QPalette()
+    dark_palette.setColor(QPalette.ColorRole.Window, QColor(53, 53, 53))
+    dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(255, 255, 255))
+    dark_palette.setColor(QPalette.ColorRole.Base, QColor(25, 25, 25))
+    dark_palette.setColor(QPalette.ColorRole.AlternateBase, QColor(53, 53, 53))
+    dark_palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(0, 0, 0))
+    dark_palette.setColor(QPalette.ColorRole.ToolTipText, QColor(255, 255, 255))
+    dark_palette.setColor(QPalette.ColorRole.Text, QColor(255, 255, 255))
+    dark_palette.setColor(QPalette.ColorRole.Button, QColor(53, 53, 53))
+    dark_palette.setColor(QPalette.ColorRole.ButtonText, QColor(255, 255, 255))
+    dark_palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 0, 0))
+    dark_palette.setColor(QPalette.ColorRole.Link, QColor(42, 130, 218))
+    dark_palette.setColor(QPalette.ColorRole.Highlight, QColor(42, 130, 218))
+    dark_palette.setColor(QPalette.ColorRole.HighlightedText, QColor(0, 0, 0))
+    
+    app.setPalette(dark_palette)
+    
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

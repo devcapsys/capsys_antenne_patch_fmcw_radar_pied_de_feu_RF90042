@@ -26,14 +26,14 @@ def run_step(log, config: configuration.AppConfig):
             "step_name": os.path.splitext(os.path.basename(__file__))[0],
         }
     )
-    if config.serial_patch is None:
+    if config.serial_patch_fmcw is None:
         return 1, f"{step_name} : config.serial_patch n'est pas initialisé."
     if config.multimeter_current is None:
         return 1, f"{step_name} : config.multimeter_current n'est pas initialisé."
 
     command_to_send = config.configItems.current_standby.cmd  # Example: "--> ok"
     expected_response = config.configItems.current_standby.expected_prefix
-    config.serial_patch.send_command(command_to_send, expected_response, timeout=1)
+    config.serial_patch_fmcw.send_command(command_to_send, expected_response, timeout=1)
 
     # Verify current limits
     current_min = config.configItems.current_standby.minimum

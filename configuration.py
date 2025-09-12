@@ -18,7 +18,7 @@ def get_project_path(*paths):
     """Return the absolute path from the project root, regardless of current working directory."""
     return os.path.abspath(os.path.join(os.path.dirname(__file__), *paths))
 
-class SerialPatch(SerialInstrumentManager):
+class SerialPatchFmcw(SerialInstrumentManager):
     def __init__(self, port=None, baudrate=115200, timeout=0.3, debug=False):
         SerialInstrumentManager.__init__(self, port, baudrate, timeout, debug)
         self._debug_log("PatchManager initialized")
@@ -27,7 +27,23 @@ class SerialPatch(SerialInstrumentManager):
         idn = self.send_command("help\r", timeout=1) # Example : help = "Command disp : prod param stat all"
         if not idn:
             raise RuntimeError("Failed to get valid IDN response")
-        if idn.startswith("Command disp :\r prod\r param\r stat\r all\r"):
+        if idn.startswith("Command disp :\r prod\r param\r"):
+            self._debug_log(f"Device IDN: {idn}")
+            return True
+        else:
+            raise RuntimeError(f"Invalid device IDN: {idn}")
+        
+class SerialTargetCapsys(SerialInstrumentManager):
+    def __init__(self, port=None, baudrate=921600, timeout=0.3, debug=False):
+        SerialInstrumentManager.__init__(self, port, baudrate, timeout, debug)
+        self._debug_log("TargetCapsys initialized")
+
+    def get_valid(self, sn=None) -> bool:
+        self.send_command("\r", timeout=1)
+        idn = self.send_command("help\r", timeout=1) # Example : help = "Command disp : prod param stat all"
+        if not idn:
+            raise RuntimeError("Failed to get valid IDN response")
+        if idn.startswith("Command disp :\r param\r all\r\r"):
             self._debug_log(f"Device IDN: {idn}")
             return True
         else:
@@ -36,8 +52,15 @@ class SerialPatch(SerialInstrumentManager):
 class ConfigItems:
     """Container for all configuration items used in the test sequence."""
     key_map = {
-        "MULTIMETRE": "multimeter", # Example
-        # Add other keys and their corresponding ConfigItem attributes as needed
+        "CIBLE": "target",
+        "MULTIMETRE_COURANT": "multimeter_current",
+        "ALIMENTATION": "alim",
+        "PATCH": "serial_patch",
+        "TARGET_CAPSYS": "serial_target_capsys",
+        "NOISE_FLOOR_SEUILS": "noise_floor_seuils",
+        "TEST_BF": "bf",
+        "TEST_TX": "tx",
+        "CURRENT_STANDBY_A": "current_standby",
     }
 
     def init_config_items(self, configJson):
@@ -52,7 +75,21 @@ class ConfigItems:
                 attr_name,
                 ConfigItems.ConfigItem(                
                     key=item.get("key"),
-                    # Add other parameters as needed
+                    port=item.get("port"),
+                    minimum=item.get("minimum"),
+                    maximum=item.get("maximum"),
+                    power_min=item.get("power_min"),
+                    power_max=item.get("power_max"),
+                    offset_power=item.get("offset_power"),
+                    min_map=item.get("min_map"),
+                    max_map=item.get("max_map"),
+                    save_prefix_map=item.get("save_prefix_map"),
+                    units_map=item.get("units_map"),
+                    unit=item.get("unit"),
+                    cmd=item.get("cmd"),
+                    expected_prefix=item.get("expected_prefix"),
+                    replace_map=item.get("replace_map"),
+                    timeout=item.get("timeout"),
                 )
             )
 
@@ -100,11 +137,11 @@ class ConfigItems:
         self.target = self.ConfigItem()
         self.multimeter_current = self.ConfigItem()
         self.alim = self.ConfigItem()
-        self.serial_patch = self.ConfigItem()
-        self.thresholds = self.ConfigItem()
+        self.serial_patch_fmcw = self.ConfigItem()
+        self.serial_target_capsys = self.ConfigItem()
+        self.noise_floor_seuils = self.ConfigItem()
+        self.bf = self.ConfigItem()
         self.tx = self.ConfigItem()
-        self.current_tx = self.ConfigItem()
-        self.frequency_tx = self.ConfigItem()
         self.current_standby = self.ConfigItem()
 
 class Arg:
@@ -140,7 +177,8 @@ class AppConfig:
         self.multimeter_current: Optional[Mp730424Manager] = None
         self.alim: Optional[alimentation_rsd3305p.Rsd3305PManager] = None
         self.target: Optional[Kts1Manager] = None
-        self.serial_patch: Optional[SerialPatch] = None
+        self.serial_patch_fmcw: Optional[SerialPatchFmcw] = None
+        self.serial_target_capsys: Optional[SerialTargetCapsys] = None
         atexit.register(self.cleanup) # Register cleanup function to be called on exit
 
     def save_value(self, step_name_id: int, key: str, value: str, unit: str = ""):
@@ -170,15 +208,15 @@ class AppConfig:
         replace_map={},
         fct=None
     ):
-        if self.serial_patch is None:
+        if self.serial_patch_fmcw is None:
             return 1, "Erreur : le patch n'est pas initialisé."
         log(f"Envoi de la commande : \"{command_to_send}\"", "blue")
-        response = self.serial_patch.send_command(command_to_send, timeout=timeout)
+        response = self.serial_patch_fmcw.send_command(command_to_send, timeout=timeout)
         log(f"Réponse du patch : {response}", "blue")
         response = fct(response) if fct else response
         if not response.startswith(expected_prefix):
-            self.serial_patch.close()
-            self.serial_patch = None
+            self.serial_patch_fmcw.close()
+            self.serial_patch_fmcw = None
             return 1, f"Réponse inattendue du patch \"{command_to_send}\". Le port est fermé."
         # Appliquer les remplacements
         for k, v in replace_map.items():

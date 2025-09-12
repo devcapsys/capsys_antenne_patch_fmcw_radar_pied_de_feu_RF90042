@@ -89,9 +89,9 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     txt = ""
     for parameter in parameters:
         data = parameter  # parameter is already a dictionary
-        config_json_name = "config_antenne_patch_radar_doppler_RF90040"
-        if configuration.VERSION == "DEBUG":
-            config_json_name = "config"
+        config_json_name = "config_antenne_patch_fmcw_radar_pied_de_feu_RF90042"
+        if configuration.HASH_GIT == "DEBUG":
+            config_json_name = "config_debug"
         if data.get("name") == config_json_name:
             data_str = data.get("file")
             txt = f"Le fichier de config utilisé correspond à la ligne id={data.get('id')} de la table parameters"
@@ -184,7 +184,11 @@ def init_target(log, config: configuration.AppConfig):
     config.target = None
     log("Initialisation de la cible...", "cyan")
     target = Kts1Manager(debug=config.arg.show_all_logs)
-    port = config.configItems.target.port
+    if configuration.HASH_GIT == "DEBUG":
+        log("En mode DEBUG, il faut bien penser à changer le port.", "cyan")
+        port = "COM21" # PC TGE
+    else:
+        port = config.configItems.target.port
     try:
         if target.open_with_usb_name_and_sn(usb_name="USB Serial Port", sn="21260003", start_with_port=port):
             log(f"{target.identification()}", "blue")
@@ -208,7 +212,11 @@ def init_multimeter_current(log, config: configuration.AppConfig):
     config.multimeter_current = None
     log("Initialisation du multimètre en courant...", "cyan")
     multimeter = Mp730424Manager(debug=config.arg.show_all_logs)
-    port = config.configItems.multimeter_current.port
+    if configuration.HASH_GIT == "DEBUG":
+        log("En mode DEBUG, il faut bien penser à changer le port.", "cyan")
+        port = "COM27" # PC TGE
+    else:
+        port = config.configItems.multimeter_current.port
     try:
         if multimeter.open_with_usb_name_and_sn(usb_name="USB Serial Port", sn="24140443", start_with_port=port):
             log(multimeter.identification(), "blue")
@@ -229,7 +237,11 @@ def init_alimentation(log, config: configuration.AppConfig):
     config.alim = None
     log("Initialisation de l'alimentation...", "cyan")
     alim = alimentation_rsd3305p.Rsd3305PManager(debug=config.arg.show_all_logs)
-    port = config.configItems.alim.port
+    if configuration.HASH_GIT == "DEBUG":
+        log("En mode DEBUG, il faut bien penser à changer le port.", "cyan")
+        port = "COM20" # PC TGE
+    else:
+        port = config.configItems.alim.port
     try:
         if alim.open_with_usb_name_and_sn("Périphérique série USB", "29599382", start_with_port=port):
             log(f"{alim.identification()}", "blue")
@@ -246,9 +258,9 @@ def init_alimentation(log, config: configuration.AppConfig):
     config.alim = alim
     return 0, "Alimentation initialisée avec succès."
 
-def init_patch(log, config: configuration.AppConfig, step_name_id):
-    config.serial_patch = None
-    log("Initialisation du patch...", "cyan")
+def init_patch_fmcw(log, config: configuration.AppConfig, step_name_id):
+    config.serial_patch_fmcw = None
+    log("Initialisation du patch FMCW...", "cyan")
     # Ensure that the alim is initialized
     if config.alim == None:
         return 1, "L'alimentation n'est pas initialisée ou connectée."
@@ -257,20 +269,34 @@ def init_patch(log, config: configuration.AppConfig, step_name_id):
         time.sleep(0.5)
         config.alim.set_output(2, True)
         time.sleep(0.1)  # Wait for dut to stabilize
-        voltage1 = config.alim.read_output_voltage(2)
-        current1 = config.alim.read_output_current(2)
-        log(f"Alim CH2 : {voltage1}V, {current1}A", "blue")
-        config.serial_patch = configuration.SerialPatch()
-        if configuration.VERSION == "DEBUG":
+        voltage2 = config.alim.read_output_voltage(2)
+        current2 = config.alim.read_output_current(2)
+        log(f"Alim CH2 : {voltage2}V, {current2}A", "blue")
+        config.serial_patch_fmcw = configuration.SerialPatchFmcw()
+        if configuration.HASH_GIT == "DEBUG":
             log("En mode DEBUG, il faut bien penser à changer le port.", "cyan")
-            port = "COM26" # PC TGE
+            port = "COM24" # PC TGE
         else:
-            port = config.configItems.serial_patch.port
-        config.serial_patch.open_with_port(port)
-        log(f"Patch ouvert sur : {config.serial_patch.port}", "blue")
+            port = config.configItems.serial_patch_fmcw.port
+        config.serial_patch_fmcw.open_with_port(port)
+        log(f"Patch FMCW ouvert sur : {config.serial_patch_fmcw.port}", "blue")
     except Exception as e:
-        return 1, f"Problème lors de l'initialisation du patch : {e}"
-    return 0, "Patch initialisée avec succès."
+        return 1, f"Problème lors de l'initialisation du patch FMCW : {e}"
+    return 0, "Patch FMCW initialisée avec succès."
+
+def init_target_capsys(log, config: configuration.AppConfig, step_name_id):
+    config.serial_target_capsys = None
+    log("Initialisation de la target Capsys...", "cyan")
+    # Ensure that the alim is initialized
+    config.serial_target_capsys = configuration.SerialTargetCapsys()
+    if configuration.HASH_GIT == "DEBUG":
+        log("En mode DEBUG, il faut bien penser à changer le port.", "cyan")
+        port = "COM22" # PC TGE
+    else:
+        port = config.configItems.serial_target_capsys.port
+    config.serial_target_capsys.open_with_port(port)
+    log(f"Target Capsys ouvert sur : {config.serial_target_capsys.port}", "blue")
+    return 0, "Target Capsys initialisée avec succès."
 
 def run_step(log, config: configuration.AppConfig):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -279,6 +305,21 @@ def run_step(log, config: configuration.AppConfig):
     if status != 0:
         return status, f"{step_name} : {step_name_id}"
 
+    try:
+        target_capsys_is_open = (config.serial_target_capsys is not None and 
+                                getattr(getattr(config.serial_target_capsys, 'ser', None), 'is_open', False))
+    except (AttributeError, TypeError):
+        target_capsys_is_open = False
+
+    if not target_capsys_is_open:
+        status, message = init_target_capsys(log, config, step_name_id)
+        log(message, "blue")
+        if status != 0:
+            if config.serial_target_capsys is not None:
+                config.serial_target_capsys.close()
+            config.serial_target_capsys = None
+            return status, f"{step_name} : {message}"
+            
     try:
         multimeter_is_open = (config.multimeter_current is not None and 
                              getattr(getattr(config.multimeter_current, 'ser', None), 'is_open', False))
@@ -316,18 +357,18 @@ def run_step(log, config: configuration.AppConfig):
         log("L'alimentation est déjà initialisée.", "blue")
 
     try:
-        patch_is_open = (config.serial_patch is not None and 
-                        getattr(getattr(config.serial_patch, 'ser', None), 'is_open', False))
+        patch_is_open = (config.serial_patch_fmcw is not None and 
+                        getattr(getattr(config.serial_patch_fmcw, 'ser', None), 'is_open', False))
     except (AttributeError, TypeError):
         patch_is_open = False
         
     if not patch_is_open:
-        status, message = init_patch(log, config, step_name_id)
+        status, message = init_patch_fmcw(log, config, step_name_id)
         log(message, "blue")
         if status != 0:
-            if config.serial_patch is not None:
-                config.serial_patch.close()
-            config.serial_patch = None
+            if config.serial_patch_fmcw is not None:
+                config.serial_patch_fmcw.close()
+            config.serial_patch_fmcw = None
             return status, f"{step_name} : {message}"
     else:
         log("Le patch est déjà initialisé.", "blue")
@@ -349,9 +390,9 @@ def run_step(log, config: configuration.AppConfig):
     else:
         log("La cible est déjà initialisée.", "blue")
 
-    if config.serial_patch is None:
+    if config.serial_patch_fmcw is None:
         return 1, f"{step_name} : le patch n'est pas initialisé."
-    log(f"Envoie de la commande \"test power on\" : {config.serial_patch.send_command('test power on\r', expected_response='ok', timeout=15)}", "blue")
+    log(f"Envoie de la commande \"test power on\" : {config.serial_patch_fmcw.send_command('test power on\r', expected_response='ok', timeout=15)}", "blue")
 
     return 0, f"{step_name} : OK"
 

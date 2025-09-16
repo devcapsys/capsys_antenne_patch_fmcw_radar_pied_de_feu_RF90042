@@ -60,6 +60,9 @@ class ConfigItems:
         "NOISE_FLOOR_SEUILS": "noise_floor_seuils",
         "TEST_BF_TARGET_CAPSYS": "bf_target_capsys",
         "TEST_BF": "bf",
+        "TEST_IMBALANCE_FREQ_1": "imbalance_freq_1",
+        "TEST_IMBALANCE_FREQ_2": "imbalance_freq_2",
+        "TEST_IMBALANCE_FREQ_3": "imbalance_freq_3",
         "TEST_TX": "tx",
         "CURRENT_STANDBY_A": "current_standby",
     }
@@ -146,6 +149,9 @@ class ConfigItems:
         self.noise_floor_seuils = self.ConfigItem()
         self.bf_target_capsys = self.ConfigItem()
         self.bf = self.ConfigItem()
+        self.imbalance_freq_1 = self.ConfigItem()
+        self.imbalance_freq_2 = self.ConfigItem()
+        self.imbalance_freq_3 = self.ConfigItem()
         self.tx = self.ConfigItem()
         self.current_standby = self.ConfigItem()
 

@@ -181,18 +181,33 @@ class AppConfig:
         self.serial_target_capsys: Optional[SerialTargetCapsys] = None
         atexit.register(self.cleanup) # Register cleanup function to be called on exit
 
-    def save_value(self, step_name_id: int, key: str, value: str, unit: str = ""):
-        """Save a key-value pair in the database."""
-        if not self.db or not self.device_under_test_id:
-            raise ValueError("Database or device under test ID is not initialized.")
-        self.db.create("step_key_val_pairs",
-                       {"step_name_id": step_name_id, "key": key, "val_char": value, "unit": unit})
-        
     def cleanup(self):
         if self.db:
             self.db.disconnect()
             self.db = None
+        if self.multimeter_current:
+            self.multimeter_current.close()
+            self.multimeter_current = None
+        if self.target:
+            self.target.close()
+            self.target = None
+        if self.serial_patch_fmcw:
+            self.serial_patch_fmcw.close()
+            self.serial_patch_fmcw = None
+        if self.alim:
+            self.alim.set_output(1, False)
+            self.alim.set_output(2, False)
+            self.alim.close()
+            self.alim = None
         self.device_under_test_id = None
+        
+    def save_value(self, step_name_id: int, key: str, value: float, unit: str = "", min_value: Optional[float] = None, max_value: Optional[float] = None, valid: int = 0):
+        """Save a key-value pair in the database."""
+        if not self.db or not self.device_under_test_id:
+            raise ValueError("Database or device under test ID is not initialized.")
+        id = self.db.create("skvp_float",
+                       {"step_name_id": step_name_id, "key": key, "val_float": value, "unit": unit, "min_configured": min_value, "max_configured": max_value, "valid": valid})
+        return id
 
     def run_meas_on_patch(
         self,
@@ -223,7 +238,7 @@ class AppConfig:
             response = response.replace(k, v)
         response = response.strip()
         values = []
-        valides = True
+        valid = 1
         expected_values_count = len(min_values)
         for i, val in enumerate(response.split(" ")):
             if val.strip():
@@ -231,7 +246,7 @@ class AppConfig:
                     val_float = float(val.strip())
                 except ValueError:
                     log(f"{i+1} : valeur non numérique '{val.strip()}'", "red")
-                    valides = False
+                    valid = 0
                     break
                 if i < expected_values_count:
                     if min_values[i] <= val_float <= max_values[i]:
@@ -240,16 +255,16 @@ class AppConfig:
                     else:
                         log(f"{i+1} : {val_float} (NOK ; min={min_values[i]} ; max={max_values[i]})", "red")
                         values.append(val_float)
-                        valides = False
+                        valid = 0
         
         # Save all valid values, even on error
         if save_key_prefix != "":
             for i, val_float in enumerate(values):
                 key = save_key_prefix[i] if isinstance(save_key_prefix, list) and i < len(save_key_prefix) else f"val{i+1}"
                 unit = seuil_unit_map[i]
-                self.save_value(step_name_id, key, str(val_float), unit)
+                self.save_value(step_name_id, key, val_float, unit, min_value=min_values[i], max_value=max_values[i], valid=valid)
 
-        if valides:
+        if valid:
             return 0, "Mesure réussie."
         else:
             return 1, f"Erreur : hors limites ou non numérique."

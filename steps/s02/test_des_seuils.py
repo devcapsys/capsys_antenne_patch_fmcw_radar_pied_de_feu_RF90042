@@ -28,25 +28,25 @@ def run_step(log, config: configuration.AppConfig):
     )
 
     # Paramètres spécifiques seuils
-    seuil_min = config.configItems.thresholds.min_map
-    seuil_max = config.configItems.thresholds.max_map
-    seuil_cmd = config.configItems.thresholds.cmd # Example : "Seuils: 60 45 40 40 40 40 40 40"
-    seuil_expected_prefix = config.configItems.thresholds.expected_prefix
-    seuil_replace_map = config.configItems.thresholds.replace_map
-    seuil_save_prefix = config.configItems.thresholds.save_prefix_map
-    seuil_units_map = config.configItems.thresholds.units_map
-    seuil_timeout = config.configItems.thresholds.timeout
+    min = config.configItems.noise_floor_seuils.min_map
+    max = config.configItems.noise_floor_seuils.max_map
+    cmd = config.configItems.noise_floor_seuils.cmd # Example : "Seuils: 60 45 40 40 40 40 40 40"
+    expected_prefix = config.configItems.noise_floor_seuils.expected_prefix
+    replace_map = config.configItems.noise_floor_seuils.replace_map
+    save_prefix = config.configItems.noise_floor_seuils.save_prefix_map
+    units_map = config.configItems.noise_floor_seuils.units_map
+    timeout = config.configItems.noise_floor_seuils.timeout
 
     # Retry logic for the command
     for attempt in range(1, config.max_retries + 1):
         log(f"Exécution de l'étape test des seuils (tentative {attempt}/{config.max_retries})", "yellow")
 
         status, msg = config.run_meas_on_patch(
-            log, step_name_id, seuil_min, seuil_max, seuil_cmd, seuil_expected_prefix, seuil_save_prefix, seuil_units_map, seuil_timeout, seuil_replace_map
+            log, step_name_id, min, max, cmd, expected_prefix, save_prefix, units_map, timeout, replace_map
         )
         if status != 0:
             if attempt < config.max_retries:
-                log(f"Réessaie de \"{seuil_cmd}\"... (tentative {attempt + 1}/{config.max_retries})", "yellow")
+                log(f"Réessaie de \"{cmd}\"... (tentative {attempt + 1}/{config.max_retries})", "yellow")
                 time.sleep(1)
                 continue
             else:

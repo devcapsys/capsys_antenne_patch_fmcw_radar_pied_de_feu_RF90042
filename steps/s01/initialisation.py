@@ -296,6 +296,7 @@ def init_target_capsys(log, config: configuration.AppConfig, step_name_id):
         port = config.configItems.serial_target_capsys.port
     config.serial_target_capsys.open_with_port(port)
     log(f"Target Capsys ouvert sur : {config.serial_target_capsys.port}", "blue")
+    config.serial_target_capsys.send_command("set cible off\r", expected_response="ok", timeout=2)
     return 0, "Target Capsys initialisée avec succès."
 
 def run_step(log, config: configuration.AppConfig):

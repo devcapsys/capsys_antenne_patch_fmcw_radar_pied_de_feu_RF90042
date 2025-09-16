@@ -25,33 +25,59 @@ def run_step(log, config: configuration.AppConfig):
             "step_name": os.path.splitext(os.path.basename(__file__))[0],
         }
     )
+    if config.serial_target_capsys is None:
+        return 1, f"{step_name} : config.serial_target_capsys n'est pas initialisé."
+
+    cmd_map_target_capsys = config.configItems.bf_target_capsys.cmd_map
+    expected_prefix_target_capsys = config.configItems.bf_target_capsys.expected_prefix
+
 
     # Paramètres spécifiques seuils
-    seuil_min = config.configItems.thresholds.min_map
-    seuil_max = config.configItems.thresholds.max_map
-    seuil_cmd = config.configItems.thresholds.cmd # Example : "Seuils: 60 45 40 40 40 40 40 40"
-    seuil_expected_prefix = config.configItems.thresholds.expected_prefix
-    seuil_replace_map = config.configItems.thresholds.replace_map
-    seuil_save_prefix = config.configItems.thresholds.save_prefix_map
-    seuil_units_map = config.configItems.thresholds.units_map
-    seuil_timeout = config.configItems.thresholds.timeout
+    min_map = config.configItems.bf.min_map
+    min_map_sub1 = min_map[0:2]
+    min_map_sub2 = min_map[2:4]
+    min_map_sub3 = min_map[4:6]
+    min_map_groups = [min_map_sub1, min_map_sub2, min_map_sub3]
+    max_map = config.configItems.bf.max_map
+    max_map_sub1 = max_map[0:2]
+    max_map_sub2 = max_map[2:4]
+    max_map_sub3 = max_map[4:6]
+    max_map_groups = [max_map_sub1, max_map_sub2, max_map_sub3]
+    save_prefix_map = config.configItems.bf.save_prefix_map
+    save_prefix_map_sub1 = save_prefix_map[0:2]
+    save_prefix_map_sub2 = save_prefix_map[2:4]
+    save_prefix_map_sub3 = save_prefix_map[4:6]
+    save_prefix_map_groups = [save_prefix_map_sub1, save_prefix_map_sub2, save_prefix_map_sub3]
+    cmd = config.configItems.bf.cmd
+    replace_map = config.configItems.bf.replace_map
+    # units_map = config.configItems.bf.units_map
+    expected_prefix = config.configItems.bf.expected_prefix
+    timeout = config.configItems.bf.timeout
 
     # Retry logic for the command
     for attempt in range(1, config.max_retries + 1):
-        log(f"Exécution de l'étape test des seuils (tentative {attempt}/{config.max_retries})", "yellow")
+        all_ok = 1
+        log(f"Exécution de l'étape {step_name} (tentative {attempt}/{config.max_retries})", "yellow")
 
-        status, msg = config.run_meas_on_patch(
-            log, step_name_id, seuil_min, seuil_max, seuil_cmd, seuil_expected_prefix, seuil_save_prefix, seuil_units_map, seuil_timeout, seuil_replace_map
-        )
-        if status != 0:
-            if attempt < config.max_retries:
-                log(f"Réessaie de \"{seuil_cmd}\"... (tentative {attempt + 1}/{config.max_retries})", "yellow")
-                time.sleep(1)
-                continue
+        config.serial_target_capsys.send_command(cmd_map_target_capsys[0], expected_prefix_target_capsys, timeout=3)
+        for i in range(3):
+            config.serial_target_capsys.send_command(cmd_map_target_capsys[i+1], expected_prefix_target_capsys, timeout=3)
+            status, msg = config.run_meas_on_patch(
+                log, step_name_id, min_map_groups[i], max_map_groups[i], cmd, expected_prefix, save_prefix_map_groups[i], timeout=timeout, replace_map=replace_map
+            )
+            if status != 0:
+                if attempt < config.max_retries:
+                    log(f"Réessaie de \"{cmd}\"... (tentative {attempt + 1}/{config.max_retries})", "yellow")
+                    time.sleep(1)
+                    break
+                else:
+                    return status, f"{step_name} : {msg}"
             else:
-                return status, f"{step_name} : {msg}"
-        else:
+                # return 0, f"{step_name} : OK"
+                all_ok = 0
+        if all_ok == 0:
             return 0, f"{step_name} : OK"
+    
     return 1, f"{step_name} : NOK"
 
 

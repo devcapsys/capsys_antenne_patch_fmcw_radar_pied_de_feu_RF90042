@@ -32,6 +32,23 @@ def run_step(log, config: configuration.AppConfig):
         log("Problème lors de la suppression du fichier config.json.", "yellow")
         success = 2
 
+    if config.target and config.target.ser and config.target.ser.is_open:
+        config.target.send_command_and_clean_answer("a0", "a0")
+        config.target.send_command_and_clean_answer("t0", "t0")
+        config.target.send_command_and_clean_answer("c0", "c0")
+        log("Commande de nettoyage envoyée à la cible.", "blue")
+    else:
+        log("Aucune cible à déconnecter.", "yellow")
+        success = 2
+
+    if config.serial_patch_fmcw and config.serial_patch_fmcw.ser and config.serial_patch_fmcw.ser.is_open:
+        log(f"Envoie de la commande \"test power off\" : {config.serial_patch_fmcw.send_command('test power off\r', expected_response='ok', timeout=2)}", "blue")
+    else:
+        log("Le port série du patch n'avait pas été initialisé.", "yellow")
+        success = 2
+
+    if config.serial_target_capsys and config.serial_target_capsys.ser and config.serial_target_capsys.ser.is_open:
+        log(f"Envoie de la commande \"set cible off\" : {config.serial_target_capsys.send_command('set cible off\r', expected_response='ok', timeout=2)}", "blue")
 
     if success == 0:
         return success, "Nettoyage effectué avec succès."

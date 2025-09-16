@@ -30,7 +30,7 @@ def run_step(log, config: configuration.AppConfig):
     # Paramètres spécifiques seuils
     min = config.configItems.noise_floor_seuils.min_map
     max = config.configItems.noise_floor_seuils.max_map
-    cmd = config.configItems.noise_floor_seuils.cmd # Example : "Seuils: 60 45 40 40 40 40 40 40"
+    cmd = config.configItems.noise_floor_seuils.cmd
     expected_prefix = config.configItems.noise_floor_seuils.expected_prefix
     replace_map = config.configItems.noise_floor_seuils.replace_map
     save_prefix = config.configItems.noise_floor_seuils.save_prefix_map

@@ -58,6 +58,7 @@ class ConfigItems:
         "PATCH": "serial_patch",
         "TARGET_CAPSYS": "serial_target_capsys",
         "NOISE_FLOOR_SEUILS": "noise_floor_seuils",
+        "TEST_BF_TARGET_CAPSYS": "bf_target_capsys",
         "TEST_BF": "bf",
         "TEST_TX": "tx",
         "CURRENT_STANDBY_A": "current_standby",
@@ -87,6 +88,7 @@ class ConfigItems:
                     units_map=item.get("units_map"),
                     unit=item.get("unit"),
                     cmd=item.get("cmd"),
+                    cmd_map=item.get("cmd_map"),
                     expected_prefix=item.get("expected_prefix"),
                     replace_map=item.get("replace_map"),
                     timeout=item.get("timeout"),
@@ -110,6 +112,7 @@ class ConfigItems:
             units_map = [],
             unit = "",
             cmd = "",
+            cmd_map = [],
             expected_prefix = "",
             replace_map = {},
             timeout = 0
@@ -128,6 +131,7 @@ class ConfigItems:
             self.units_map = units_map
             self.unit = unit
             self.cmd = cmd
+            self.cmd_map = cmd_map
             self.expected_prefix = expected_prefix
             self.replace_map = replace_map
             self.timeout = timeout
@@ -140,6 +144,7 @@ class ConfigItems:
         self.serial_patch_fmcw = self.ConfigItem()
         self.serial_target_capsys = self.ConfigItem()
         self.noise_floor_seuils = self.ConfigItem()
+        self.bf_target_capsys = self.ConfigItem()
         self.bf = self.ConfigItem()
         self.tx = self.ConfigItem()
         self.current_standby = self.ConfigItem()
@@ -261,7 +266,7 @@ class AppConfig:
         if save_key_prefix != "":
             for i, val_float in enumerate(values):
                 key = save_key_prefix[i] if isinstance(save_key_prefix, list) and i < len(save_key_prefix) else f"val{i+1}"
-                unit = seuil_unit_map[i]
+                unit = seuil_unit_map[i] if isinstance(seuil_unit_map, (list, tuple)) and i < len(seuil_unit_map) and seuil_unit_map[i] else "N/A"
                 self.save_value(step_name_id, key, val_float, unit, min_value=min_values[i], max_value=max_values[i], valid=valid)
 
         if valid:

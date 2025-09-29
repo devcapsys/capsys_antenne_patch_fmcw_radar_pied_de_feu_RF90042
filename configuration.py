@@ -81,7 +81,7 @@ class ConfigItems:
                 self,
                 attr_name,
                 ConfigItems.ConfigItem(                
-                    key=item.get("key"),
+                    key=json_key,
                     port=item.get("port"),
                     minimum=item.get("minimum"),
                     maximum=item.get("maximum"),
@@ -90,14 +90,6 @@ class ConfigItems:
                     offset_power=item.get("offset_power"),
                     min_map=item.get("min_map"),
                     max_map=item.get("max_map"),
-                    save_prefix_map=item.get("save_prefix_map"),
-                    units_map=item.get("units_map"),
-                    unit=item.get("unit"),
-                    cmd=item.get("cmd"),
-                    cmd_map=item.get("cmd_map"),
-                    expected_prefix=item.get("expected_prefix"),
-                    replace_map=item.get("replace_map"),
-                    timeout=item.get("timeout"),
                 )
             )
 

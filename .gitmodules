@@ -7,3 +7,6 @@
 [submodule "modules/capsys_serial_instrument_manager"]
 	path = modules/capsys_serial_instrument_manager
 	url = https://github.com/devcapsys/capsys_serial_instrument_manager
+[submodule "modules/capsys_wrapper_tm_t20iii"]
+	path = modules/capsys_wrapper_tm_t20iii
+	url = https://github.com/devcapsys/capsys_wrapper_tm_t20iii

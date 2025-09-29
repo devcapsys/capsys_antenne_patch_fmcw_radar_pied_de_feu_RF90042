@@ -33,26 +33,26 @@ def run_step(log, config: configuration.AppConfig):
     # Paramètres spécifiques imbalance
     min_map_1 = config.configItems.imbalance_freq_1.min_map
     max_map_1 = config.configItems.imbalance_freq_1.max_map
-    save_prefix_map_1 = config.configItems.imbalance_freq_1.save_prefix_map
-    cmd_1 = config.configItems.imbalance_freq_1.cmd
+    save_prefix_map_1 = ["IMB_IDX_F1", "IMB_PUISS_F1", "IMB_F1_dB"]
+    cmd_1 = "test imb 1\r"
 
     min_map_2 = config.configItems.imbalance_freq_2.min_map
     max_map_2 = config.configItems.imbalance_freq_2.max_map
-    save_prefix_map_2 = config.configItems.imbalance_freq_2.save_prefix_map
-    cmd_2 = config.configItems.imbalance_freq_2.cmd
+    save_prefix_map_2 = ["IMB_IDX_F2", "IMB_PUISS_F2", "IMB_F2_dB"]
+    cmd_2 = "test imb 2\r"
 
     min_map_3 = config.configItems.imbalance_freq_3.min_map
     max_map_3 = config.configItems.imbalance_freq_3.max_map
-    save_prefix_map_3 = config.configItems.imbalance_freq_3.save_prefix_map
-    cmd_3 = config.configItems.imbalance_freq_3.cmd
+    save_prefix_map_3 = ["IMB_IDX_F3", "IMB_PUISS_F3", "IMB_F3_dB"]
+    cmd_3 = "test imb 3\r"
 
     min_map_groups = [min_map_1, min_map_2, min_map_3]
     max_map_groups = [max_map_1, max_map_2, max_map_3]
     save_prefix_map_groups = [save_prefix_map_1, save_prefix_map_2, save_prefix_map_3]
     cmd_map_target_capsys = [cmd_1, cmd_2, cmd_3]
-    replace_map = config.configItems.imbalance_freq_1.replace_map
-    expected_prefix = config.configItems.imbalance_freq_1.expected_prefix
-    timeout = config.configItems.imbalance_freq_1.timeout
+    replace_map = [("--> ok : ", ""), ("- ", "")]
+    expected_prefix = "--> ok : "
+    timeout = 2
 
     # Retry logic for the command
     for attempt in range(1, config.max_retries + 1):

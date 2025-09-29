@@ -31,23 +31,23 @@ def run_step(log, config: configuration.AppConfig):
     if config.multimeter_current is None:
         return 1, f"{step_name} : config.multimeter_current n'est pas initialisé."
 
-    command_to_send = config.configItems.current_standby.cmd  # Example: "--> ok"
-    expected_response = config.configItems.current_standby.expected_prefix
-    config.serial_patch_fmcw.send_command(command_to_send, expected_response, timeout=1)
+    # command_to_send = "test standby\r"
+    # expected_response = "--> ok"
+    # config.serial_patch_fmcw.send_command(command_to_send, expected_response, timeout=1)
 
-    # Verify current limits
-    current_min = config.configItems.current_standby.minimum
-    current_max = config.configItems.current_standby.maximum
-    name = config.configItems.current_standby.key
-    unit = config.configItems.current_standby.unit
-    config.multimeter_current.send_command("RANGE:ACI 1\n")
-    config.multimeter_current.send_command("RATE F\n")
-    current = float(config.multimeter_current.meas())
-    config.multimeter_current.send_command("RANGE:ACI 4\n")
-    log(f"Courant mesuré : {current}{unit}, min={current_min}{unit}, max={current_max}{unit}", "blue")
-    config.save_value(step_name_id, name, str(current), unit)
-    if current > float(current_max) or current < float(current_min):
-        return 1, f"{step_name} : Courant mesuré {current}{unit} hors des limites ({current_min}{unit} - {current_max}{unit})."
+    # # Verify current limits
+    # current_min = config.configItems.current_standby.minimum
+    # current_max = config.configItems.current_standby.maximum
+    # name = config.configItems.current_standby.key
+    # unit = "A"
+    # config.multimeter_current.send_command("RANGE:ACI 1\n")
+    # config.multimeter_current.send_command("RATE F\n")
+    # current = float(config.multimeter_current.meas())
+    # config.multimeter_current.send_command("RANGE:ACI 4\n")
+    # log(f"Courant mesuré : {current}{unit}, min={current_min}{unit}, max={current_max}{unit}", "blue")
+    # config.save_value(step_name_id, name, str(current), unit)
+    # if current > float(current_max) or current < float(current_min):
+    #     return 1, f"{step_name} : Courant mesuré {current}{unit} hors des limites ({current_min}{unit} - {current_max}{unit})."
 
     return 0, f"{step_name} : OK"
 

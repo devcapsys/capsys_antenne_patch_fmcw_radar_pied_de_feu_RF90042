@@ -9,9 +9,9 @@ from PyQt6.QtGui import QIcon, QCloseEvent
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from datetime import datetime
-import ctypes
-import tempfile
+import logging, ctypes, tempfile, json
 from modules.capsys_pdf_report.capsys_pdf_report import DeviceReport  # Custom
+from modules.capsys_wrapper_tm_t20iii.capsys_wrapper_tm_t20III import PrinterDC  # Custom
 import configuration  # Custom
 
 # Global config object
@@ -38,6 +38,17 @@ class TestThread(QThread):
 
     def emit_log_message(self, message, color="white"):
         """Emit a log message signal with the given message and color."""
+        # Si le message est un dict, le convertir en chaîne lisible
+        if isinstance(message, dict):
+            message = json.dumps(message, ensure_ascii=False, indent=2)
+        elif isinstance(message, str):
+            try:
+                # Si le message est une chaîne JSON, le charger puis le retransformer pour formatage
+                obj = json.loads(message)
+                if isinstance(obj, dict):
+                    message = json.dumps(obj, ensure_ascii=False, indent=2)
+            except json.JSONDecodeError:
+                pass
         self.log_message.emit(message, color)
 
     def load_steps(self) -> List[Tuple[str, Callable, Callable]]:
@@ -111,7 +122,9 @@ class TestThread(QThread):
             self.update_step.emit(idx, "⏳", 2, "Étape en cours")
 
             try:
-                success, message = step_func(self.emit_log_message, config)
+                    success, message = step_func(self.emit_log_message, config)
+                    if isinstance(message, dict):
+                        message = json.dumps(message, ensure_ascii=False, indent=2)
             except (Exception) as e:  # If any bug in steps, we treat them as test passed NOK
                 success = 1
                 message = f"Exception : {e}"
@@ -119,16 +132,53 @@ class TestThread(QThread):
             if success == 0:  # Test passed OK
                 self.emit_log_message(message, "green")
             elif success == 1:  # Test passed NOK
+                if config.printer and config.arg.product_list:
+                    if config.arg.product_list.get("info") != "debugg":
+                        try:
+                            msg_obj = json.loads(message) if isinstance(message, str) else message
+                        except json.JSONDecodeError:
+                            msg_obj = message
+                        # If dict, extract step_name and pass the rest as infos
+                        if isinstance(msg_obj, dict) and "step_name" in msg_obj:
+                            label = msg_obj["step_name"]
+                            infos = []
+                            # If 'infos' exists and is a list, only its elements are displayed
+                            if "infos" in msg_obj and isinstance(msg_obj["infos"], list):
+                                for v in msg_obj["infos"]:
+                                    infos.append({"type": "text", "content": str(v), "align": "l", "weight": 500})
+                            else:
+                                for k, v in msg_obj.items():
+                                    if k != "step_name":
+                                        infos.append({"type": "text", "content": f"{k} : {v}", "align": "l", "weight": 500})
+                        else:
+                            label = str(msg_obj)
+                            infos = None
+                        config.printer.custom_print_bdt(
+                            config.arg.operator,
+                            config.arg.product_list.get("info"),
+                            config.device_under_test_id,
+                            label,
+                            infos)
                 self.emit_log_message(message, "red")
             else:  # Test passed with WARNING
                 self.emit_log_message(message, "yellow")
 
-            self.update_step.emit(idx, "✅" if success == 0 else "❌", success, message)
+            # Ensure message is always a string for update_step.emit
+            if isinstance(message, dict):
+                message_str = json.dumps(message, ensure_ascii=False, indent=2)
+            else:
+                message_str = str(message)
+            self.update_step.emit(idx, "✅" if success == 0 else "❌", success, message_str)
 
             if success and not step_name.startswith("fin_du_test"):
-                self.step_failed.emit(step_name, message)
+                # Ensure message is always a string for step_failed.emit
+                if isinstance(message, dict):
+                    message_str = json.dumps(message, ensure_ascii=False, indent=2)
+                else:
+                    message_str = str(message)
+                self.step_failed.emit(step_name, message_str)
                 error_found = True
-                failure_message = message
+                failure_message = message_str
 
         # Update of the overall result in the database
         if error_found or self.skipped_steps:
@@ -212,6 +262,10 @@ class MainWindow(QWidget):
         if not self.has_arguments:
             for arg in sys.argv:
                 self.append_log(arg)
+        
+        config.printer = PrinterDC(configuration.PRINTER_NAME, debug=config.arg.show_all_logs)
+        if not config.printer.connected:
+            self.append_log("Erreur de connexion à l'imprimante.", "yellow")
 
     def set_simple_mode_with_arguments(self):
         """Set simple mode when the script is executed with arguments."""
@@ -509,7 +563,21 @@ class MainWindow(QWidget):
 
     def handle_step_failure(self, step_name, message):
         """Display a critical error dialog when a test step fails."""
-        QMessageBox.critical(self, "Erreur", f"L'étape '{step_name[3:]}' a échoué :\n{message}")
+        # Affiche uniquement les infos si présentes
+        msg_to_show = message
+        obj = None
+        if isinstance(message, str):
+            try:
+                obj = json.loads(message)
+            except Exception:
+                obj = None
+        elif isinstance(message, dict):
+            obj = message
+        if isinstance(obj, dict) and "infos" in obj and isinstance(obj["infos"], list):
+            msg_to_show = "\n".join([str(v) for v in obj["infos"]])
+        elif isinstance(obj, dict):
+            msg_to_show = ", ".join([f"{k}: {v}" for k, v in obj.items()])
+        QMessageBox.critical(self, f"Erreur", f"L'étape '{step_name[3:]}' a échoué :\n{msg_to_show}")
 
     def stop_test(self):
         """Stop the test thread and run the cleanup step if necessary."""
@@ -566,21 +634,19 @@ class MainWindow(QWidget):
 
     def append_log(self, message, color="white"):
         """Append a log message to the log area and save it to the log file."""
-        from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
-        
+        from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor, QFont
+
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Get the cursor and move to the end
+
         cursor = self.log_area.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
-        
+
         # Format for the timestamp (always in gray)
         timestamp_format = QTextCharFormat()
         timestamp_format.setForeground(QColor("#888888"))
         cursor.insertText(f"[{now}] ", timestamp_format)
-        
-        # Format for the message (with specified color)
-        message_format = QTextCharFormat()
+
+
         color_map = {
             "white": "#ffffff",
             "yellow": "#ffff00",
@@ -591,16 +657,48 @@ class MainWindow(QWidget):
             "red": "#ff4444",
             "purple": "#ff00ff"
         }
-        message_color = color_map.get(color, "#ffffff")
-        message_format.setForeground(QColor(message_color))
-        cursor.insertText(f"{message}\n", message_format)
-        
-        # Scroll to the bottom
+
+        # Custom display for dict with 'infos' key
+        if isinstance(message, str):
+            try:
+                obj = json.loads(message)
+            except Exception:
+                obj = None
+        elif isinstance(message, dict):
+            obj = message
+        else:
+            obj = None
+
+        # Determine color for dict display
+        dict_color = color_map["green"] if color == "green" else (color_map["red"] if color == "red" else color_map["blue"])
+
+        if isinstance(obj, dict) and "infos" in obj and isinstance(obj["infos"], list):
+            message_format = QTextCharFormat()
+            message_format.setForeground(QColor(dict_color))
+            message_format.setFontFamily("Consolas")
+            message_format.setFontPointSize(10)
+            for v in obj["infos"]:
+                cursor.insertText(f"{v}\n", message_format)
+            plain_message = f"[{now}] " + "\n".join([str(v) for v in obj["infos"]]) + "\n"
+        elif isinstance(obj, dict):
+            message_format = QTextCharFormat()
+            message_format.setForeground(QColor(dict_color))
+            message_format.setFontFamily("Consolas")
+            message_format.setFontPointSize(10)
+            for k, v in obj.items():
+                cursor.insertText(f"{k} : {v}\n", message_format)
+            plain_message = f"[{now}] " + "\n".join([f"{k} : {v}" for k, v in obj.items()]) + "\n"
+        else:
+            message_format = QTextCharFormat()
+            message_color = color_map.get(color, "#ffffff")
+            message_format.setForeground(QColor(message_color))
+            cursor.insertText(f"{message}\n", message_format)
+            plain_message = f"[{now}] {message}\n"
+
         self.log_area.setTextCursor(cursor)
         self.log_area.ensureCursorVisible()
 
         # Saving to file
-        plain_message = f"[{now}] {message}\n"
         try:
             with open(self.log_file_path, "a", encoding="utf-8") as f:
                 f.write(plain_message)
@@ -658,6 +756,12 @@ class MainWindow(QWidget):
 
 def main():
     """Main function to initialize the application and start the GUI"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()],
+    )
+
     # This helps with PyInstaller and multiprocessing issues
     import multiprocessing
     multiprocessing.freeze_support()

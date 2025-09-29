@@ -28,8 +28,8 @@ def run_step(log, config: configuration.AppConfig):
     if config.serial_target_capsys is None:
         return 1, f"{step_name} : config.serial_target_capsys n'est pas initialisé."
 
-    cmd_map_target_capsys = config.configItems.bf_target_capsys.cmd_map
-    expected_prefix_target_capsys = config.configItems.bf_target_capsys.expected_prefix
+    cmd_map_target_capsys = ["set cible on\r", "set freq 10000\r", "set freq 100000\r", "set freq 260000\r"]
+    expected_prefix_target_capsys = "--> ok"
 
 
     # Paramètres spécifiques seuils
@@ -43,16 +43,15 @@ def run_step(log, config: configuration.AppConfig):
     max_map_sub2 = max_map[2:4]
     max_map_sub3 = max_map[4:6]
     max_map_groups = [max_map_sub1, max_map_sub2, max_map_sub3]
-    save_prefix_map = config.configItems.bf.save_prefix_map
-    save_prefix_map_sub1 = save_prefix_map[0:2]
-    save_prefix_map_sub2 = save_prefix_map[2:4]
-    save_prefix_map_sub3 = save_prefix_map[4:6]
+    save_prefix_map_sub1 = ["TEST_BF_FREQ_1_Id", "TEST_BF_FREQ_1_AMP_dB"]
+    save_prefix_map_sub2 = ["TEST_BF_FREQ_2_Id", "TEST_BF_FREQ_2_AMP_dB"]
+    save_prefix_map_sub3 = ["TEST_BF_FREQ_3_Id", "TEST_BF_FREQ_3_AMP_dB"]
     save_prefix_map_groups = [save_prefix_map_sub1, save_prefix_map_sub2, save_prefix_map_sub3]
-    cmd = config.configItems.bf.cmd
-    replace_map = config.configItems.bf.replace_map
+    cmd = "test bf\r"
+    replace_map = [("--> ok : ", ""), ("- ", "")]
     # units_map = config.configItems.bf.units_map
-    expected_prefix = config.configItems.bf.expected_prefix
-    timeout = config.configItems.bf.timeout
+    expected_prefix = "--> ok"
+    timeout = 2
 
     # Retry logic for the command
     for attempt in range(1, config.max_retries + 1):

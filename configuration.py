@@ -6,6 +6,7 @@ from modules.capsys_serial_instrument_manager.mp730424.multimeter_mp730424 impor
 from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseManager, DatabaseConfig) # Custom
 from modules.capsys_serial_instrument_manager.rsd3305p import alimentation_rsd3305p  # Custom
 from modules.capsys_serial_instrument_manager.kts1.cible_kts1 import Kts1Manager  # Custom
+from modules.capsys_wrapper_tm_t20iii.capsys_wrapper_tm_t20III import PrinterDC  # Custom
 
 # Initialize global variables
 CURRENTH_PATH = os.path.dirname(__file__)
@@ -13,6 +14,7 @@ NAME_GUI = "Test antenne patch FMCW radar pied de feu RF90042"
 VERSION = "V1.0.0"
 HASH_GIT = "DEBUG" # Will be replaced by the Git hash when compiled with command .\build.bat
 AUTHOR = "Thomas GERARDIN"
+PRINTER_NAME = "EPSON TM-T20III Receipt"
 
 def get_project_path(*paths):
     """Return the absolute path from the project root, regardless of current working directory."""
@@ -58,11 +60,12 @@ class ConfigItems:
         "PATCH": "serial_patch",
         "TARGET_CAPSYS": "serial_target_capsys",
         "NOISE_FLOOR_SEUILS": "noise_floor_seuils",
-        "TEST_BF_TARGET_CAPSYS": "bf_target_capsys",
         "TEST_BF": "bf",
         "TEST_IMBALANCE_FREQ_1": "imbalance_freq_1",
         "TEST_IMBALANCE_FREQ_2": "imbalance_freq_2",
         "TEST_IMBALANCE_FREQ_3": "imbalance_freq_3",
+        "TEST_TX_CURRENT": "tx_current",
+        "TEST_TX_FREQ_Hz": "frequency_tx",
         "TEST_TX": "tx",
         "CURRENT_STANDBY_A": "current_standby",
     }
@@ -130,14 +133,6 @@ class ConfigItems:
             self.offset_power = offset_power
             self.min_map = min_map
             self.max_map = max_map
-            self.save_prefix_map = save_prefix_map
-            self.units_map = units_map
-            self.unit = unit
-            self.cmd = cmd
-            self.cmd_map = cmd_map
-            self.expected_prefix = expected_prefix
-            self.replace_map = replace_map
-            self.timeout = timeout
     
     def __init__(self):
         """Initialize all ConfigItem attributes for different test parameters."""
@@ -147,11 +142,12 @@ class ConfigItems:
         self.serial_patch_fmcw = self.ConfigItem()
         self.serial_target_capsys = self.ConfigItem()
         self.noise_floor_seuils = self.ConfigItem()
-        self.bf_target_capsys = self.ConfigItem()
         self.bf = self.ConfigItem()
         self.imbalance_freq_1 = self.ConfigItem()
         self.imbalance_freq_2 = self.ConfigItem()
         self.imbalance_freq_3 = self.ConfigItem()
+        self.tx_current = self.ConfigItem()
+        self.frequency_tx = self.ConfigItem()
         self.tx = self.ConfigItem()
         self.current_standby = self.ConfigItem()
 
@@ -172,7 +168,7 @@ class Arg:
     host = "127.0.0.1"
     port = "3306"
     database = "capsys_db_bdt"
-    product_list: Optional[list[str]] = None
+    product_list: Optional[dict] = None
     parameters_group: list[str] = []
     external_devices: Optional[list[str]] = None
     script: Optional[str] = None
@@ -190,6 +186,7 @@ class AppConfig:
         self.target: Optional[Kts1Manager] = None
         self.serial_patch_fmcw: Optional[SerialPatchFmcw] = None
         self.serial_target_capsys: Optional[SerialTargetCapsys] = None
+        self.printer: Optional[PrinterDC] = None
         atexit.register(self.cleanup) # Register cleanup function to be called on exit
 
     def cleanup(self):

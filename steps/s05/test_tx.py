@@ -32,35 +32,20 @@ def run_step(log, config: configuration.AppConfig):
     if config.target is None:
         return 1, f"{step_name} : config.target n'est pas initialisé."
 
-    # Paramètres spécifiques tx 4
-    tx_min = config.configItems.tx.min_map
-    tx_max = config.configItems.tx.max_map
-    tx_cmd = config.configItems.tx.cmd # Example : "--> ok - Freq : 241596720 "
-    tx_expected_prefix = config.configItems.tx.expected_prefix
-    tx_replace_map = config.configItems.tx.replace_map
-    tx_save_prefix = config.configItems.tx.save_prefix_map
-    tx_timeout = config.configItems.tx.timeout
+    config.target.send_command_and_clean_answer("a0", "a0")
+    config.target.send_command_and_clean_answer("t0", "t0")
+    config.target.send_command_and_clean_answer("c0", "c0")
+    log(f"Commande de nettoyage envoyée à la cible.", "blue")
+    time.sleep(0.5)
 
-    # Retry logic for the command
+    current_min = config.configItems.tx_current.minimum
+    current_max = config.configItems.tx_current.maximum
+    current_unit = "A"
+
     for attempt in range(1, config.max_retries + 1):
-        log(f"Exécution de l'étape test TX (tentative {attempt}/{config.max_retries})", "yellow")
-
-        status, msg = config.run_meas_on_patch(
-            log, step_name_id, tx_min, tx_max, tx_cmd, tx_expected_prefix, "", {}, tx_timeout, tx_replace_map
-        )
-        if status != 0:
-            if attempt < config.max_retries:
-                log(f"Réessaie de \"{tx_cmd}\"... (tentative {attempt + 1}/{config.max_retries})", "yellow")
-                time.sleep(1)
-                continue
-            else:
-                return status, f"{step_name} : {msg}"
-
-        current_min = config.configItems.current_tx.minimum
-        current_max = config.configItems.current_tx.maximum
         current = round(float(config.multimeter_current.meas()), 3)
-        log(f"Courant mesuré : {current}A ; min={current_min}A ; max={current_max}A", "blue")
-        config.save_value(step_name_id, config.configItems.current_tx.key, str(current), config.configItems.current_tx.unit)
+        log(f"Courant mesuré : {current}{current_unit} ; min={current_min}{current_unit} ; max={current_max}{current_unit}", "blue")
+        id = config.save_value(step_name_id, config.configItems.tx_current.key, current, current_unit, current_min, current_max)
         if current > current_max or current < current_min:
             if attempt < config.max_retries:
                 log(f"Réessaie de mesurer le courant... (tentative {attempt + 1}/{config.max_retries})", "yellow")
@@ -68,13 +53,15 @@ def run_step(log, config: configuration.AppConfig):
                 continue
             else:
                 return 1, f"{step_name} : Problème de courant."
+        config.db.update_by_id("skvp_float", id, {"valid": 1})
 
         freq_min = config.configItems.frequency_tx.minimum
         freq_max = config.configItems.frequency_tx.maximum
+        freq_unit = "Hz"
         power_min = config.configItems.frequency_tx.power_min
         power_max = config.configItems.frequency_tx.power_max
         offset_power = config.configItems.frequency_tx.offset_power
-        cmd = config.configItems.frequency_tx.cmd
+        cmd = "m"
         try:
             response = config.target.send_command_and_clean_answer(cmd) # Example : "m\nf (Rx)     P (Rx)    P (AUX)\n24.161GHz  -41.0dBm  -74.9dBm"
         except:
@@ -97,10 +84,10 @@ def run_step(log, config: configuration.AppConfig):
         response = response.split(" ")
         freq = float(response[12].split("\n")[1].replace("GHz", "")) * 1e9  # Convert GHz to Hz
         power = round(float(response[14].replace("dBm", "")) + offset_power, 1)
-        log(f"Fréquence mesurée : {freq}Hz ; min={freq_min}Hz ; max={freq_max}Hz", "blue")
-        config.save_value(step_name_id, config.configItems.frequency_tx.key, str(freq), config.configItems.frequency_tx.unit)
+        log(f"Fréquence mesurée : {freq}{freq_unit} ; min={freq_min}{freq_unit} ; max={freq_max}{freq_unit}", "blue")
+        id_freq = config.save_value(step_name_id, config.configItems.frequency_tx.key, freq, freq_unit, min_value=freq_min, max_value=freq_max)
         log(f"Puissance mesurée : {power}dBm ; min={power_min}dBm ; max={power_max}dBm", "blue")
-        config.save_value(step_name_id, "TX_PUISSANCE_dBm", str(power), "dBm")
+        id_power = config.save_value(step_name_id, "TX_PUISSANCE_dBm", power, "dBm", min_value=power_min, max_value=power_max)
         if freq < freq_min or freq > freq_max:
             if attempt < config.max_retries:
                 log(f"Réessaie de mesurer la fréquence... (tentative {attempt + 1}/{config.max_retries})", "yellow")
@@ -108,6 +95,7 @@ def run_step(log, config: configuration.AppConfig):
                 continue
             else:
                 return 1, f"{step_name} : Problème de fréquence."
+        config.db.update_by_id("skvp_float", id_freq, {"valid": 1})
 
         if power < power_min or power > power_max:
             if attempt < config.max_retries:
@@ -116,11 +104,10 @@ def run_step(log, config: configuration.AppConfig):
                 continue
             else:
                 return 1, f"{step_name} : Problème de puissance."
-
+        config.db.update_by_id("skvp_float", id_power, {"valid": 1})
         log(f"Ajout de l'offset de puissance : {offset_power}dBm ; Puissance mesurée : {power}dBm", "blue")
 
         return 0, f"{step_name} : OK"
-
     return 1, f"{step_name} : NOK"
 
 

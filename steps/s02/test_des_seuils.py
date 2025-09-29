@@ -16,6 +16,7 @@ def get_info():
 
 def run_step(log, config: configuration.AppConfig):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
+    return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
         return 1, f"{step_name} : config.db n'est pas initialisé."
@@ -30,12 +31,12 @@ def run_step(log, config: configuration.AppConfig):
     # Paramètres spécifiques seuils
     min = config.configItems.noise_floor_seuils.min_map
     max = config.configItems.noise_floor_seuils.max_map
-    cmd = config.configItems.noise_floor_seuils.cmd
-    expected_prefix = config.configItems.noise_floor_seuils.expected_prefix
-    replace_map = config.configItems.noise_floor_seuils.replace_map
-    save_prefix = config.configItems.noise_floor_seuils.save_prefix_map
-    units_map = config.configItems.noise_floor_seuils.units_map
-    timeout = config.configItems.noise_floor_seuils.timeout
+    cmd = "test seuil 50 100 150\r"
+    expected_prefix = "--> ok : "
+    replace_map = [("--> ok : ", ""), ("- ", "")]
+    save_prefix = "NOISE_FLOOR_SEUIL_"
+    units_map = ["dB", "dB", "dB"]
+    timeout = 2
 
     # Retry logic for the command
     for attempt in range(1, config.max_retries + 1):

@@ -4,7 +4,7 @@ import sys
 import importlib.util
 import os
 from typing import List, Tuple, Callable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
+sys.path.insert(0, os.path.join(os.getcwd(), 'modules'))
 from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseManager, DatabaseConfig) # Custom
 from PyQt6.QtGui import QIcon, QCloseEvent
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QMessageBox, QCheckBox)

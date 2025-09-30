@@ -11,6 +11,7 @@ a = Analysis(
     pathex=[],
     binaries=[] + mysql_binaries + reportlab_binaries,
     datas=[
+        ('logo-big.png', '.'),
         ('steps', 'steps'),
         ('modules/capsys_mysql_command', 'modules/capsys_mysql_command'),
         ('modules/capsys_pdf_report', 'modules/capsys_pdf_report'),
@@ -85,4 +86,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='logo-big.png',
 )

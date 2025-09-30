@@ -11,6 +11,7 @@ from modules.capsys_wrapper_tm_t20iii.capsys_wrapper_tm_t20III import PrinterDC 
 # Initialize global variables
 CURRENTH_PATH = os.path.dirname(__file__)
 NAME_GUI = "Test antenne patch FMCW radar pied de feu RF90042"
+CONFIG_JSON_NAME = "config_antenne_patch_radar_doppler_RF90040"
 VERSION = "V1.0.0"
 HASH_GIT = "DEBUG" # Will be replaced by the Git hash when compiled with command .\build.bat
 AUTHOR = "Thomas GERARDIN"
@@ -177,6 +178,9 @@ class AppConfig:
         if self.db:
             self.db.disconnect()
             self.db = None
+        if self.serial_target_capsys:
+            self.serial_target_capsys.close()
+            self.serial_target_capsys = None
         if self.multimeter_current:
             self.multimeter_current.close()
             self.multimeter_current = None

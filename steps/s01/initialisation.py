@@ -37,6 +37,7 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     operator = Operator(**operators[0])
     operator_id = operator.id
 
+    # Retrieve product_list from database
     config.arg.product_list = config.db.get_by_id("product_list", config.arg.product_list_id)
     if not config.arg.product_list:
         return 1, "Aucun produit trouvé dans la base de données."
@@ -88,7 +89,7 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     txt = ""
     for parameter in parameters:
         data = parameter  # parameter is already a dictionary
-        config_json_name = "config_antenne_patch_fmcw_radar_pied_de_feu_RF90042"
+        config_json_name = configuration.CONFIG_JSON_NAME
         if configuration.HASH_GIT == "DEBUG":
             config_json_name = "config_debug"
         if data.get("name") == config_json_name:
@@ -220,9 +221,8 @@ def init_multimeter_current(log, config: configuration.AppConfig):
         if multimeter.open_with_usb_name_and_sn(usb_name="USB Serial Port", sn="24140443", start_with_port=port):
             log(multimeter.identification(), "blue")
             multimeter.reset()
-            multimeter.system_remote()
             multimeter.conf_curr_dc()
-            multimeter.send_command("RANGE:DCI 5\n")
+            multimeter.send_command("RANGE:ACI 4\n")
             multimeter.send_command("RATE F\n")
         else:
             return 1, "Impossible de se connecter au multimètre MP730424."

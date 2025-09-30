@@ -88,13 +88,12 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     data_str = None
     txt = ""
     for parameter in parameters:
-        data = parameter  # parameter is already a dictionary
         config_json_name = configuration.CONFIG_JSON_NAME
         if configuration.HASH_GIT == "DEBUG":
             config_json_name = "config_debug"
-        if data.get("name") == config_json_name:
-            data_str = data.get("file")
-            txt = f"Le fichier de config utilisé correspond à la ligne id={data.get('id')} de la table parameters"
+        if parameter.get("name") == config_json_name:
+            data_str = parameter.get("file")
+            txt = f"Le fichier de config utilisé correspond à la ligne id={parameter.get('id')} de la table parameters"
             log(txt, "blue")
     if data_str == None:
         return (1, "Le fichier config n'est pas présent dans la ddb.")

@@ -19,4 +19,3 @@ def update_submodules():
 # Appelle la fonction automatiquement à l'ouverture du script
 if __name__ == "__main__":
     update_submodules()
-    input("Appuyez sur Entrée pour sortir...")

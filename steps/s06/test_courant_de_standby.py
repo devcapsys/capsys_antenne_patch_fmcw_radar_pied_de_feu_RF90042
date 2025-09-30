@@ -16,41 +16,42 @@ def get_info():
 
 def run_step(log, config: configuration.AppConfig):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
+    return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
-        return 1, f"{step_name} : config.db n'est pas initialisé."
+        return_msg["infos"].append(f"config.db n'est pas initialisé.")
+        return 1, return_msg
     # We always save the name of the step in the db
-    step_name_id = config.db.create(
-        "step_name", {
-            "device_under_test_id": config.device_under_test_id,
-            "step_name": os.path.splitext(os.path.basename(__file__))[0],
-        }
-    )
+    step_name_id = config.db.create("step_name", {"device_under_test_id": config.device_under_test_id, "step_name": step_name})
     if config.serial_patch_fmcw is None:
-        return 1, f"{step_name} : config.serial_patch n'est pas initialisé."
+        return_msg["infos"].append(f"config.serial_patch_fmcw n'est pas initialisé.")
+        return 1, return_msg
     if config.multimeter_current is None:
-        return 1, f"{step_name} : config.multimeter_current n'est pas initialisé."
+        return_msg["infos"].append(f"config.multimeter_current n'est pas initialisé.")
+        return 1, return_msg
 
-    # command_to_send = "test standby\r"
-    # expected_response = "--> ok"
-    # config.serial_patch_fmcw.send_command(command_to_send, expected_response, timeout=1)
+    command_to_send = "test standby\r"
+    expected_response = "--> ok"
+    config.serial_patch_fmcw.send_command(command_to_send, expected_response, timeout=1)
 
-    # # Verify current limits
-    # current_min = config.configItems.current_standby.minimum
-    # current_max = config.configItems.current_standby.maximum
-    # name = config.configItems.current_standby.key
-    # unit = "A"
-    # config.multimeter_current.send_command("RANGE:ACI 1\n")
-    # config.multimeter_current.send_command("RATE F\n")
-    # current = float(config.multimeter_current.meas())
-    # config.multimeter_current.send_command("RANGE:ACI 4\n")
-    # log(f"Courant mesuré : {current}{unit}, min={current_min}{unit}, max={current_max}{unit}", "blue")
-    # config.save_value(step_name_id, name, str(current), unit)
-    # if current > float(current_max) or current < float(current_min):
-    #     return 1, f"{step_name} : Courant mesuré {current}{unit} hors des limites ({current_min}{unit} - {current_max}{unit})."
+    # Verify current limits
+    current_min = config.configItems.current_standby.minimum
+    current_max = config.configItems.current_standby.maximum
+    name = config.configItems.current_standby.key
+    unit = "A"
+    config.multimeter_current.send_command("RANGE:ACI 1\n")
+    config.multimeter_current.send_command("RATE F\n")
+    current = float(config.multimeter_current.meas())
+    config.multimeter_current.send_command("RANGE:ACI 4\n")
+    log(f"Courant mesuré : {current}{unit}, min={current_min}{unit}, max={current_max}{unit}", "blue")
+    id = config.save_value(step_name_id, name, current, unit, min_value=current_min, max_value=current_max)
+    if current > float(current_max) or current < float(current_min):
+        return_msg["infos"].append(f"Courant mesuré {current}{unit} hors des limites ({current_min}{unit} - {current_max}{unit}).")
+        return 1, return_msg
+    config.db.update_by_id("skvp_float", id, {"valid": 1})
 
-    return 0, f"{step_name} : OK"
-
+    return_msg["infos"].append(f"OK")
+    return 0, return_msg
 
 if __name__ == "__main__":
     """Allow to run this script directly for testing purposes."""

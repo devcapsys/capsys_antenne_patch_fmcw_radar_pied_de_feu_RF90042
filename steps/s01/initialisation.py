@@ -37,14 +37,13 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     operator = Operator(**operators[0])
     operator_id = operator.id
 
-    # Retrieve product_list from database
-    product_list_data = config.db.get_by_id("product_list", config.arg.product_list_id)
-    if not product_list_data:
+    config.arg.product_list = config.db.get_by_id("product_list", config.arg.product_list_id)
+    if not config.arg.product_list:
         return 1, "Aucun produit trouvé dans la base de données."
 
     # Retrieve bench_composition from database
-    bench_compisition_id = product_list_data.get("bench_composition_id")
-    bench_composition_raw = config.db.get_by_column("bench_composition", "id", bench_compisition_id)
+    bench_composition_id = config.arg.product_list.get("bench_composition_id")
+    bench_composition_raw = config.db.get_by_column("bench_composition", "id", bench_composition_id)
     bench_composition = bench_composition_raw if bench_composition_raw else []
     if not bench_composition:
         return (1, "Problème lors de la récupération de la composition du banc dans la base de données.")
@@ -68,7 +67,7 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     script = script_data
 
     # Retrieve parameters_group from database
-    parameters_group_id = product_list_data.get("parameters_group_id")
+    parameters_group_id = config.arg.product_list.get("parameters_group_id")
     parameters_group_raw = config.db.get_by_column("parameters_group", "parameters_group_id", parameters_group_id)
     parameters_group = parameters_group_raw if parameters_group_raw else []
     if not parameters_group:
@@ -153,7 +152,7 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     data = {
         "device_under_test_id": config.device_under_test_id,
         "operator": operator.to_dict() if hasattr(operator, 'to_dict') else vars(operator),
-        "product_list": product_list_data,  # already a dictionary
+        "product_list": config.arg.product_list,  # already a dictionary
         "bench_composition": bench_composition,  # already a list of dictionaries
         "external_devices": external_devices,   # already a list of dictionaries
         "script": script,                       # already a dictionary

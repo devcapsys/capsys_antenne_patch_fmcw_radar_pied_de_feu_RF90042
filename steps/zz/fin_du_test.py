@@ -32,6 +32,12 @@ def run_step(log, config: configuration.AppConfig):
         log("Problème lors de la suppression du fichier config.json.", "yellow")
         success = 2
 
+    if config.serial_target_capsys and config.serial_target_capsys.ser and config.serial_target_capsys.ser.is_open:
+        log(f"Envoie de la commande \"set cible off\" : {config.serial_target_capsys.send_command('set cible off\r', expected_response='ok', timeout=2)}", "blue")
+        config.serial_target_capsys.close()
+        config.serial_target_capsys = None
+        log("Port série de la cible fermé.", "blue")
+
     if config.target and config.target.ser and config.target.ser.is_open:
         config.target.send_command_and_clean_answer("a0", "a0")
         config.target.send_command_and_clean_answer("t0", "t0")
@@ -46,9 +52,6 @@ def run_step(log, config: configuration.AppConfig):
     else:
         log("Le port série du patch n'avait pas été initialisé.", "yellow")
         success = 2
-
-    if config.serial_target_capsys and config.serial_target_capsys.ser and config.serial_target_capsys.ser.is_open:
-        log(f"Envoie de la commande \"set cible off\" : {config.serial_target_capsys.send_command('set cible off\r', expected_response='ok', timeout=2)}", "blue")
 
     if success == 0:
         return success, "Nettoyage effectué avec succès."

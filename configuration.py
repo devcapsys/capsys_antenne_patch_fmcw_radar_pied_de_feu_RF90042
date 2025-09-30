@@ -57,7 +57,6 @@ class ConfigItems:
         "CIBLE": "target",
         "MULTIMETRE_COURANT": "multimeter_current",
         "ALIMENTATION": "alim",
-        "PATCH": "serial_patch",
         "TARGET_CAPSYS": "serial_target_capsys",
         "NOISE_FLOOR_SEUILS": "noise_floor_seuils",
         "TEST_BF": "bf",
@@ -217,14 +216,17 @@ class AppConfig:
         max_values,
         command_to_send,
         expected_prefix,
-        save_key_prefix = "",
-        seuil_unit_map = {},
+        save_key_prefix = "",  # type: str | list | dict
+        seuil_unit_map = {},    # type: str | list | dict
         timeout=4,
         replace_map={},
         fct=None
     ):
+        return_msg_fail = []
         if self.serial_patch_fmcw is None:
             return 1, "Erreur : le patch n'est pas initialisé."
+        if self.arg.product_list is None:
+            return 1, "Erreur : la liste de production n'est pas initialisée."
         log(f"Envoi de la commande : \"{command_to_send}\"", "blue")
         response = self.serial_patch_fmcw.send_command(command_to_send, timeout=timeout)
         log(f"Réponse du patch : {response}", "blue")
@@ -234,8 +236,12 @@ class AppConfig:
             self.serial_patch_fmcw = None
             return 1, f"Réponse inattendue du patch \"{command_to_send}\". Le port est fermé."
         # Appliquer les remplacements
-        for k, v in replace_map.items():
-            response = response.replace(k, v)
+        if isinstance(replace_map, dict):
+            for k, v in replace_map.items():
+                response = response.replace(k, v)
+        elif isinstance(replace_map, list):
+            for k, v in replace_map:
+                response = response.replace(k, v)
         response = response.strip()
         values = []
         valid = 1
@@ -246,6 +252,7 @@ class AppConfig:
                     val_float = float(val.strip())
                 except ValueError:
                     log(f"{i+1} : valeur non numérique '{val.strip()}'", "red")
+                    return_msg_fail.append(f"{i+1} : valeur non numérique '{val.strip()}'")
                     valid = 0
                     break
                 if i < expected_values_count:
@@ -255,16 +262,27 @@ class AppConfig:
                     else:
                         log(f"{i+1} : {val_float} (NOK ; min={min_values[i]} ; max={max_values[i]})", "red")
                         values.append(val_float)
+                        return_msg_fail.append(f"{i+1} : {val_float} (NOK ; min={min_values[i]} ; max={max_values[i]})")
                         valid = 0
         
         # Save all valid values, even on error
         if save_key_prefix != "":
             for i, val_float in enumerate(values):
-                key = save_key_prefix[i] if isinstance(save_key_prefix, list) and i < len(save_key_prefix) else f"val{i+1}"
-                unit = seuil_unit_map[i] if isinstance(seuil_unit_map, (list, tuple)) and i < len(seuil_unit_map) and seuil_unit_map[i] else "N/A"
+                # If save_key_prefix is a dict/map, use mapping
+                if isinstance(save_key_prefix, dict):
+                    key = save_key_prefix.get(i, f"val{i+1}")
+                # If save_key_prefix is a list, use index
+                elif isinstance(save_key_prefix, list) and i < len(save_key_prefix):
+                    key = save_key_prefix[i]
+                # If save_key_prefix is a string, use as prefix
+                elif isinstance(save_key_prefix, str):
+                    key = f"{save_key_prefix}{i+1}"
+                else:
+                    key = f"val{i+1}"
+                unit = seuil_unit_map[i] if isinstance(seuil_unit_map, list) and i < len(seuil_unit_map) else (seuil_unit_map.get(i, "") if isinstance(seuil_unit_map, dict) else "")
                 self.save_value(step_name_id, key, val_float, unit, min_value=min_values[i], max_value=max_values[i], valid=valid)
 
         if valid:
             return 0, "Mesure réussie."
         else:
-            return 1, f"Erreur : hors limites ou non numérique."
+            return 1, return_msg_fail

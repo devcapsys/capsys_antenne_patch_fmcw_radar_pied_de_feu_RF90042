@@ -46,10 +46,10 @@ def run_step(log, config: configuration.AppConfig):
     save_prefix_map_3 = ["IMB_IDX_F3", "IMB_PUISS_F3", "IMB_F3_dB"]
     cmd_3 = "test imb 3\r"
 
-    min_map_groups = [min_map_1, min_map_2, min_map_3]
-    max_map_groups = [max_map_1, max_map_2, max_map_3]
-    save_prefix_map_groups = [save_prefix_map_1, save_prefix_map_2, save_prefix_map_3]
-    cmd_map_target_capsys = [cmd_1, cmd_2, cmd_3]
+    min_map_groups = [min_map_1, min_map_3, min_map_2]
+    max_map_groups = [max_map_1, max_map_3, max_map_2]
+    save_prefix_map_groups = [save_prefix_map_1, save_prefix_map_3, save_prefix_map_2]
+    cmd_map_target_capsys = [cmd_1, cmd_3, cmd_2]
     replace_map = [("--> ok : ", ""), ("- ", "")]
     expected_prefix = "--> ok : "
     timeout = 2

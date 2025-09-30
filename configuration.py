@@ -57,6 +57,7 @@ class ConfigItems:
         "CIBLE": "target",
         "MULTIMETRE_COURANT": "multimeter_current",
         "ALIMENTATION": "alim",
+        "PATCH": "serial_patch_fmcw",
         "TARGET_CAPSYS": "serial_target_capsys",
         "NOISE_FLOOR_SEUILS": "noise_floor_seuils",
         "TEST_BF": "bf",
@@ -105,14 +106,6 @@ class ConfigItems:
             offset_power = 0.0,
             min_map = [],
             max_map = [],
-            save_prefix_map = [],
-            units_map = [],
-            unit = "",
-            cmd = "",
-            cmd_map = [],
-            expected_prefix = "",
-            replace_map = {},
-            timeout = 0
         ):
             """Initialize a ConfigItem with optional parameters for test configuration."""
             self.key = key

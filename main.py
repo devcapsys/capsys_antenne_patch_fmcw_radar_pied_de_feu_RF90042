@@ -133,7 +133,7 @@ class TestThread(QThread):
                 self.emit_log_message(message, "green")
             elif success == 1:  # Test passed NOK
                 if config.printer and config.arg.product_list:
-                    if config.arg.product_list.get("info") != "debugg":
+                    if config.arg.product_list.get("info") != "debug":
                         try:
                             msg_obj = json.loads(message) if isinstance(message, str) else message
                         except json.JSONDecodeError:

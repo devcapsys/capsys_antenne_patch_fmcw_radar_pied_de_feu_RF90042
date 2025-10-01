@@ -15,9 +15,11 @@ def get_info():
 
 def run_step(log, config: configuration.AppConfig):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
+    return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
-        return 1, f"{step_name} : config.db n'est pas initialisé."
+        return_msg["infos"].append(f"config.db n'est pas initialisé.")
+        return 1, return_msg
     # We always save the name of the step in the db
     step_name_id = config.db.create(
         "step_name", {
@@ -26,9 +28,11 @@ def run_step(log, config: configuration.AppConfig):
         }
     )
     if config.serial_patch_fmcw is None:
-        return 1, f"{step_name} : config.serial_patch n'est pas initialisé."
+        return_msg["infos"].append(f"config.serial_patch_fmcw n'est pas initialisé.")
+        return 1, return_msg
     if config.target is None:
-        return 1, f"{step_name} : config.target n'est pas initialisé."
+        return_msg["infos"].append(f"config.target n'est pas initialisé.")
+        return 1, return_msg
 
     # Paramètres spécifiques imbalance
     min_map_1 = config.configItems.imbalance_freq_1.min_map
@@ -71,14 +75,16 @@ def run_step(log, config: configuration.AppConfig):
                     time.sleep(1)
                     break
                 else:
-                    return status, f"{step_name} : {msg}"
+                    return_msg["infos"].append(f"{i} : {msg}")
+                    return status, return_msg
             else:
-                # return 0, f"{step_name} : OK"
                 all_ok = 0
         if all_ok == 0:
-            return 0, f"{step_name} : OK"
-    
-    return 1, f"{step_name} : NOK"
+            return_msg["infos"].append(f"OK")
+            return 0, return_msg
+
+    return_msg["infos"].append(f"NOK")
+    return 1, return_msg
 
 
 if __name__ == "__main__":

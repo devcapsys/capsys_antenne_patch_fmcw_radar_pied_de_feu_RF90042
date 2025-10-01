@@ -19,7 +19,8 @@ def run_step(log, config: configuration.AppConfig):
     return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
-        return 1, f"{step_name} : config.db n'est pas initialisé."
+        return_msg["infos"].append(f"config.db n'est pas initialisé.")
+        return 1, return_msg
     # We always save the name of the step in the db
     step_name_id = config.db.create(
         "step_name", {
@@ -51,10 +52,17 @@ def run_step(log, config: configuration.AppConfig):
                 time.sleep(1)
                 continue
             else:
-                return status, f"{step_name} : {msg}"
+                if isinstance(msg, list):
+                    for item in msg:
+                        return_msg["infos"].append(f"{item}")
+                else:
+                    return_msg["infos"].append(f"{msg}")
+                return status, return_msg
         else:
-            return 0, f"{step_name} : OK"
-    return 1, f"{step_name} : NOK"
+            return_msg["infos"].append(f"OK")
+            return 0, return_msg
+    return_msg["infos"].append(f"NOK")
+    return 1, return_msg
 
 
 if __name__ == "__main__":

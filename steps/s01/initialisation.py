@@ -299,10 +299,12 @@ def init_target_capsys(log, config: configuration.AppConfig, step_name_id):
 
 def run_step(log, config: configuration.AppConfig):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
+    return_msg = {"step_name": step_name, "infos": []}
     log(f"show_all_logs = {config.arg.show_all_logs}", "blue")
     status, step_name_id = init_database_and_checks(log, config)
     if status != 0:
-        return status, f"{step_name} : {step_name_id}"
+        return_msg["infos"].append(f"{step_name_id}")
+        return status, return_msg
 
     try:
         target_capsys_is_open = (config.serial_target_capsys is not None and 
@@ -317,7 +319,8 @@ def run_step(log, config: configuration.AppConfig):
             if config.serial_target_capsys is not None:
                 config.serial_target_capsys.close()
             config.serial_target_capsys = None
-            return status, f"{step_name} : {message}"
+            return_msg["infos"].append(f"{message}")
+            return status, return_msg
             
     try:
         multimeter_is_open = (config.multimeter_current is not None and 
@@ -333,7 +336,8 @@ def run_step(log, config: configuration.AppConfig):
             if config.multimeter_current is not None:
                 config.multimeter_current.close()
             config.multimeter_current = None
-            return status, f"{step_name} : {message}"
+            return_msg["infos"].append(f"{message}")
+            return status, return_msg
     else:
         log("Le multimètre en courant est déjà initialisé.", "blue")
 
@@ -351,7 +355,8 @@ def run_step(log, config: configuration.AppConfig):
             if config.alim is not None:
                 config.alim.close()
             config.alim = None
-            return status, f"{step_name} : {message}"
+            return_msg["infos"].append(f"{message}")
+            return status, return_msg
     else:
         log("L'alimentation est déjà initialisée.", "blue")
 
@@ -368,7 +373,8 @@ def run_step(log, config: configuration.AppConfig):
             if config.serial_patch_fmcw is not None:
                 config.serial_patch_fmcw.close()
             config.serial_patch_fmcw = None
-            return status, f"{step_name} : {message}"
+            return_msg["infos"].append(f"{message}")
+            return status, return_msg
     else:
         log("Le patch est déjà initialisé.", "blue")
 
@@ -385,15 +391,18 @@ def run_step(log, config: configuration.AppConfig):
             if config.target is not None:
                 config.target.close()
             config.target = None
-            return status, f"{step_name} : {message}"
+            return_msg["infos"].append(f"{message}")
+            return status, return_msg
     else:
         log("La cible est déjà initialisée.", "blue")
 
     if config.serial_patch_fmcw is None:
-        return 1, f"{step_name} : le patch n'est pas initialisé."
+        return_msg["infos"].append(f"{step_name} : le patch n'est pas initialisé.")
+        return 1, return_msg
     log(f"Envoie de la commande \"test power on\" : {config.serial_patch_fmcw.send_command('test power on\r', expected_response='ok', timeout=15)}", "blue")
 
-    return 0, f"{step_name} : OK"
+    return_msg["infos"].append(f"OK")
+    return 0, return_msg
 
 
 if __name__ == "__main__":

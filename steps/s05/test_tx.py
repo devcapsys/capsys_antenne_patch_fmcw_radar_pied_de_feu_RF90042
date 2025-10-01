@@ -17,9 +17,11 @@ def get_info():
 
 def run_step(log, config: configuration.AppConfig):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
+    return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
-        return 1, f"{step_name} : config.db n'est pas initialisé."
+        return_msg["infos"].append(f"config.db n'est pas initialisé.")
+        return 1, return_msg
     # We always save the name of the step in the db
     step_name_id = config.db.create(
         "step_name", {
@@ -28,9 +30,11 @@ def run_step(log, config: configuration.AppConfig):
         }
     )
     if config.multimeter_current is None:
-        return 1, f"{step_name} : config.multimeter_current n'est pas initialisé."
+        return_msg["infos"].append(f"config.multimeter_current n'est pas initialisé.")
+        return 1, return_msg
     if config.target is None:
-        return 1, f"{step_name} : config.target n'est pas initialisé."
+        return_msg["infos"].append(f"config.target n'est pas initialisé.")
+        return 1, return_msg
 
     config.target.send_command_and_clean_answer("a0", "a0")
     config.target.send_command_and_clean_answer("t0", "t0")
@@ -52,7 +56,8 @@ def run_step(log, config: configuration.AppConfig):
                 time.sleep(1)
                 continue
             else:
-                return 1, f"{step_name} : Problème de courant."
+                return_msg["infos"].append(f"Problème de courant.")
+                return 1, return_msg
         config.db.update_by_id("skvp_float", id, {"valid": 1})
 
         freq_min = config.configItems.frequency_tx.minimum
@@ -73,10 +78,12 @@ def run_step(log, config: configuration.AppConfig):
                 if target.open_with_usb_name_and_sn(usb_name="USB Serial Port", sn="21260003", start_with_port=port):
                     log(f"{target.identification()}", "blue")
                 else:
-                    return 1, f"{step_name} : Impossible de se connecter à la cible KTS1."
+                    return_msg["infos"].append(f"Impossible de se connecter à la cible KTS1.")
+                    return 1, return_msg
             except Exception as e:
                 log(f"Error: {e}", "red")
-                return 1, f"{step_name} : Erreur lors de l'initialisation de la cible : {e}"
+                return_msg["infos"].append(f"Erreur lors de l'initialisation de la cible : {e}")
+                return 1, return_msg
             # At this point, kts1 is good so we put it in the global config
             config.target = target
             response = config.target.send_command_and_clean_answer(cmd)
@@ -94,7 +101,8 @@ def run_step(log, config: configuration.AppConfig):
                 time.sleep(1)
                 continue
             else:
-                return 1, f"{step_name} : Problème de fréquence."
+                return_msg["infos"].append(f"Problème de fréquence.")
+                return 1, return_msg
         config.db.update_by_id("skvp_float", id_freq, {"valid": 1})
 
         if power < power_min or power > power_max:
@@ -103,12 +111,16 @@ def run_step(log, config: configuration.AppConfig):
                 time.sleep(1)
                 continue
             else:
-                return 1, f"{step_name} : Problème de puissance."
+                return_msg["infos"].append(f"Problème de puissance.")
+                return 1, return_msg
         config.db.update_by_id("skvp_float", id_power, {"valid": 1})
         log(f"Ajout de l'offset de puissance : {offset_power}dBm ; Puissance mesurée : {power}dBm", "blue")
 
-        return 0, f"{step_name} : OK"
-    return 1, f"{step_name} : NOK"
+        return_msg["infos"].append(f"OK")
+        return 0, return_msg
+
+    return_msg["infos"].append(f"NOK")
+    return 1, return_msg
 
 
 if __name__ == "__main__":

@@ -13,13 +13,14 @@ def get_info():
     return "Cette étape effectue le nettoyage et la fermeture des ressources en fin de test."
 
 def run_step(log, config: configuration.AppConfig):
+    step_name = os.path.splitext(os.path.basename(__file__))[0]
+    return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
-        return 1, "Erreur : config.db n'est pas initialisé."
+        return_msg["infos"].append("Erreur : config.db n'est pas initialisé.")
+        return 1, return_msg
     # We always save the name of the step in the db
-    config.db.create("step_name",
-    {"device_under_test_id": config.device_under_test_id, "step_name": os.path.splitext(os.path.basename(__file__))[0]}
-    )
+    config.db.create("step_name", {"device_under_test_id": config.device_under_test_id, "step_name": step_name})
 
     success = 0
     
@@ -54,11 +55,14 @@ def run_step(log, config: configuration.AppConfig):
         success = 2
 
     if success == 0:
-        return success, "Nettoyage effectué avec succès."
+        return_msg["infos"].append("Nettoyage effectué avec succès.")
+        return success, return_msg
     elif success == 2:
-        return success, "Nettoyage effectué partiellement."
+        return_msg["infos"].append("Nettoyage effectué partiellement.")
+        return success, return_msg
     else:
-        return 1, "Erreur inconnue lors du nettoyage."
+        return_msg["infos"].append("Erreur inconnue lors du nettoyage.")
+        return 1, return_msg
 
 if __name__ == "__main__":
     """Allow to run this script directly for testing purposes."""

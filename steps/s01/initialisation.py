@@ -256,7 +256,7 @@ def init_alimentation(log, config: configuration.AppConfig):
     config.alim = alim
     return 0, "Alimentation initialisée avec succès."
 
-def init_patch_fmcw(log, config: configuration.AppConfig, step_name_id):
+def init_patch_fmcw(log, config: configuration.AppConfig):
     config.serial_patch_fmcw = None
     log("Initialisation du patch FMCW...", "cyan")
     # Ensure that the alim is initialized
@@ -282,7 +282,7 @@ def init_patch_fmcw(log, config: configuration.AppConfig, step_name_id):
         return 1, f"Problème lors de l'initialisation du patch FMCW : {e}"
     return 0, "Patch FMCW initialisée avec succès."
 
-def init_target_capsys(log, config: configuration.AppConfig, step_name_id):
+def init_target_capsys(log, config: configuration.AppConfig):
     config.serial_target_capsys = None
     log("Initialisation de la target Capsys...", "cyan")
     # Ensure that the alim is initialized
@@ -313,7 +313,7 @@ def run_step(log, config: configuration.AppConfig):
         target_capsys_is_open = False
 
     if not target_capsys_is_open:
-        status, message = init_target_capsys(log, config, step_name_id)
+        status, message = init_target_capsys(log, config)
         log(message, "blue")
         if status != 0:
             if config.serial_target_capsys is not None:
@@ -367,7 +367,7 @@ def run_step(log, config: configuration.AppConfig):
         patch_is_open = False
         
     if not patch_is_open:
-        status, message = init_patch_fmcw(log, config, step_name_id)
+        status, message = init_patch_fmcw(log, config)
         log(message, "blue")
         if status != 0:
             if config.serial_patch_fmcw is not None:

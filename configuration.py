@@ -37,7 +37,7 @@ class SerialPatchFmcw(SerialInstrumentManager):
             raise RuntimeError(f"Invalid device IDN: {idn}")
         
 class SerialTargetCapsys(SerialInstrumentManager):
-    def __init__(self, port=None, baudrate=921600, timeout=0.3, debug=False):
+    def __init__(self, port=None, baudrate=115200, timeout=0.3, debug=False):
         SerialInstrumentManager.__init__(self, port, baudrate, timeout, debug)
         self._debug_log("TargetCapsys initialized")
 

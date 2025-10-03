@@ -89,8 +89,6 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     txt = ""
     for parameter in parameters:
         config_json_name = configuration.CONFIG_JSON_NAME
-        if configuration.HASH_GIT == "DEBUG":
-            config_json_name = "config_debug"
         if parameter.get("name") == config_json_name:
             data_str = parameter.get("file")
             txt = f"Le fichier de config utilisé correspond à la ligne id={parameter.get('id')} de la table parameters"

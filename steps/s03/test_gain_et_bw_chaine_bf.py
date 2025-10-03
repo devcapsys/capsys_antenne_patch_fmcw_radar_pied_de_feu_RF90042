@@ -46,9 +46,9 @@ def run_step(log, config: configuration.AppConfig):
     max_map_sub2 = max_map[2:4]
     max_map_sub3 = max_map[4:6]
     max_map_groups = [max_map_sub1, max_map_sub2, max_map_sub3]
-    save_prefix_map_sub1 = ["TEST_BF_FREQ_1_Id", "TEST_BF_FREQ_1_AMP_dB"]
-    save_prefix_map_sub2 = ["TEST_BF_FREQ_2_Id", "TEST_BF_FREQ_2_AMP_dB"]
-    save_prefix_map_sub3 = ["TEST_BF_FREQ_3_Id", "TEST_BF_FREQ_3_AMP_dB"]
+    save_prefix_map_sub1 = ["CHAINE_BF_FREQ_1_Idx", "CHAINE_BF_FREQ_1_AMP_dB"]
+    save_prefix_map_sub2 = ["CHAINE_BF_FREQ_2_Idx", "CHAINE_BF_FREQ_2_AMP_dB"]
+    save_prefix_map_sub3 = ["CHAINE_BF_FREQ_3_Idx", "CHAINE_BF_FREQ_3_AMP_dB"]
     save_prefix_map_groups = [save_prefix_map_sub1, save_prefix_map_sub2, save_prefix_map_sub3]
     cmd = "test bf\r"
     replace_map = [("--> ok : ", ""), ("- ", "")]

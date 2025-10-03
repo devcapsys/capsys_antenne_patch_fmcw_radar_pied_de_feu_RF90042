@@ -140,12 +140,6 @@ def init_database_and_checks(log, config: configuration.AppConfig):
         {"device_under_test_id": config.device_under_test_id, "step_name": os.path.splitext(os.path.basename(__file__))[0]}
     )
 
-    config.db.create("skvp_char", {
-        "step_name_id": step_name_id,
-        "key": "VERSION",
-        "val_char": VERSION,
-    })
-
     # Create the data dictionary to be inserted into skvp_json
     data = {
         "device_under_test_id": config.device_under_test_id,
@@ -158,22 +152,9 @@ def init_database_and_checks(log, config: configuration.AppConfig):
         "parameters": parameters,               # already a list of dictionaries
     }
 
-    # Insert the data into skvp_json
-    config.db.create(
-        "skvp_json", {
-            "step_name_id": step_name_id,
-            "key": "data_used_for_test",
-            "val_json": json.dumps(data, indent=4, ensure_ascii=False, default=str),
-        }
-    )
-    
-    config.db.create(
-        "skvp_char", {
-            "step_name_id": step_name_id,
-            "key": "id_fichier_config",
-            "val_char": txt,
-        }
-    )
+    config.save_value(step_name_id, "VERSION", VERSION)
+    config.save_value(step_name_id, "data_used_for_test", json.dumps(data, indent=4, ensure_ascii=False, default=str))
+    config.save_value(step_name_id, "id_fichier_config", txt)
 
     return 0, step_name_id
 

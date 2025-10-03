@@ -37,17 +37,17 @@ def run_step(log, config: configuration.AppConfig):
     # Paramètres spécifiques imbalance
     min_map_1 = config.configItems.imbalance_freq_1.min_map
     max_map_1 = config.configItems.imbalance_freq_1.max_map
-    save_prefix_map_1 = ["IMB_IDX_F1", "IMB_PUISS_F1", "IMB_F1_dB"]
+    save_prefix_map_1 = ["IMB_IDX_F1", "IMB_LEVEL_F1_dB", "IMB_F1_dB"]
     cmd_1 = "test imb 1\r"
 
     min_map_2 = config.configItems.imbalance_freq_2.min_map
     max_map_2 = config.configItems.imbalance_freq_2.max_map
-    save_prefix_map_2 = ["IMB_IDX_F2", "IMB_PUISS_F2", "IMB_F2_dB"]
+    save_prefix_map_2 = ["IMB_IDX_F2", "IMB_LEVEL_F2_dB", "IMB_F2_dB"]
     cmd_2 = "test imb 2\r"
 
     min_map_3 = config.configItems.imbalance_freq_3.min_map
     max_map_3 = config.configItems.imbalance_freq_3.max_map
-    save_prefix_map_3 = ["IMB_IDX_F3", "IMB_PUISS_F3", "IMB_F3_dB"]
+    save_prefix_map_3 = ["IMB_IDX_F3", "IMB_LEVEL_F3_dB", "IMB_F3_dB"]
     cmd_3 = "test imb 3\r"
 
     min_map_groups = [min_map_1, min_map_3, min_map_2]

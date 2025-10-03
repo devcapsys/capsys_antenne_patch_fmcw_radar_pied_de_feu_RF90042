@@ -94,7 +94,7 @@ def run_step(log, config: configuration.AppConfig):
         log(f"Fréquence mesurée : {freq}{freq_unit} ; min={freq_min}{freq_unit} ; max={freq_max}{freq_unit}", "blue")
         id_freq = config.save_value(step_name_id, config.configItems.frequency_tx.key, freq, freq_unit, min_value=freq_min, max_value=freq_max)
         log(f"Puissance mesurée : {power}dBm ; min={power_min}dBm ; max={power_max}dBm", "blue")
-        id_power = config.save_value(step_name_id, "TX_PUISSANCE_dBm", power, "dBm", min_value=power_min, max_value=power_max)
+        id_power = config.save_value(step_name_id, "TX_EIRP_dBm", power, "dBm", min_value=power_min, max_value=power_max)
         if freq < freq_min or freq > freq_max:
             if attempt < config.max_retries:
                 log(f"Réessaie de mesurer la fréquence... (tentative {attempt + 1}/{config.max_retries})", "yellow")

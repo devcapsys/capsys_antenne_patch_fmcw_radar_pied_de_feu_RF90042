@@ -35,8 +35,8 @@ def run_step(log, config: configuration.AppConfig):
     cmd = "test seuil 50 100 150\r"
     expected_prefix = "--> ok : "
     replace_map = [("--> ok : ", ""), ("- ", "")]
-    save_prefix = "NOISE_FLOOR_SEUIL_"
-    units_map = ["dB", "dB", "dB"]
+    save_prefix_map = ["NOISE_FLOOR_SEUIL_1_dB", "NOISE_FLOOR_SEUIL_2_dB", "NOISE_FLOOR_SEUIL_3_dB"]
+    unit_map = ["dB", "dB", "dB"]
     timeout = 2
 
     # Retry logic for the command
@@ -44,7 +44,7 @@ def run_step(log, config: configuration.AppConfig):
         log(f"Exécution de l'étape {step_name} (tentative {attempt}/{config.max_retries})", "yellow")
 
         status, msg = config.run_meas_on_patch(
-            log, step_name_id, min, max, cmd, expected_prefix, save_prefix, units_map, timeout, replace_map
+            log, step_name_id, min, max, cmd, expected_prefix, save_prefix_map, unit_map, timeout, replace_map
         )
         if status != 0:
             if attempt < config.max_retries:

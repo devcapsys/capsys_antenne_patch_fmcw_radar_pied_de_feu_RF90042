@@ -246,6 +246,7 @@ def init_alimentation(log, config: configuration.AppConfig):
             alim.set_tracking_mode(0)
             alim.set_voltage(2, 12.00)
             alim.set_current(2, 0.5)
+            alim.set_output(2, True)
         else:
             return 1, "Impossible de se connecter à l'alimentation RSD3305P."
     except Exception as e:
@@ -261,13 +262,6 @@ def init_patch_fmcw(log, config: configuration.AppConfig):
     if config.alim == None:
         return 1, "L'alimentation n'est pas initialisée ou connectée."
     try:
-        config.alim.set_output(2, False)
-        time.sleep(0.5)
-        config.alim.set_output(2, True)
-        time.sleep(0.1)  # Wait for dut to stabilize
-        voltage2 = config.alim.read_output_voltage(2)
-        current2 = config.alim.read_output_current(2)
-        log(f"Alim CH2 : {voltage2}V, {current2}A", "blue")
         config.serial_patch_fmcw = configuration.SerialPatchFmcw()
         if configuration.HASH_GIT == "DEBUG":
             log("En mode DEBUG, il faut bien penser à changer le port.", "cyan")
@@ -296,6 +290,7 @@ def init_target_capsys(log, config: configuration.AppConfig):
     return 0, "Target Capsys initialisée avec succès."
 
 def run_step(log, config: configuration.AppConfig):
+    all_ok = 1
     step_name = os.path.splitext(os.path.basename(__file__))[0]
     return_msg = {"step_name": step_name, "infos": []}
     log(f"show_all_logs = {config.arg.show_all_logs}", "blue")
@@ -305,32 +300,15 @@ def run_step(log, config: configuration.AppConfig):
         return status, return_msg
 
     try:
-        target_capsys_is_open = (config.serial_target_capsys is not None and 
-                                getattr(getattr(config.serial_target_capsys, 'ser', None), 'is_open', False))
-    except (AttributeError, TypeError):
-        target_capsys_is_open = False
-
-    if not target_capsys_is_open:
-        status, message = init_target_capsys(log, config)
-        log(message, "blue")
-        if status != 0:
-            if config.serial_target_capsys is not None:
-                config.serial_target_capsys.close()
-            config.serial_target_capsys = None
-            return_msg["infos"].append(f"{message}")
-            return status, return_msg
-            
-    try:
-        multimeter_is_open = (config.multimeter_current is not None and 
-                             getattr(getattr(config.multimeter_current, 'ser', None), 'is_open', False))
+        multimeter_is_open = (config.multimeter_current is not None and getattr(getattr(config.multimeter_current, 'ser', None), 'is_open', False))
     except (AttributeError, TypeError):
         multimeter_is_open = False
-        
     if not multimeter_is_open:
         status, message = -1, "Erreur inconnue lors de l'initialisation du multimètre courant."
         status, message = init_multimeter_current(log, config)
         log(message, "blue")
         if status != 0:
+            all_ok = 0
             if config.multimeter_current is not None:
                 config.multimeter_current.close()
             config.multimeter_current = None
@@ -340,16 +318,15 @@ def run_step(log, config: configuration.AppConfig):
         log("Le multimètre en courant est déjà initialisé.", "blue")
 
     try:
-        alim_is_open = (config.alim is not None and 
-                       getattr(getattr(config.alim, 'ser', None), 'is_open', False))
+        alim_is_open = (config.alim is not None and getattr(getattr(config.alim, 'ser', None), 'is_open', False))
     except (AttributeError, TypeError):
         alim_is_open = False
-        
     if not alim_is_open:
         status, message = -1, "Erreur inconnue lors de l'initialisation de l'alimentation."
         status, message = init_alimentation(log, config)
         log(message, "blue")
         if status != 0:
+            all_ok = 0
             if config.alim is not None:
                 config.alim.close()
             config.alim = None
@@ -359,15 +336,29 @@ def run_step(log, config: configuration.AppConfig):
         log("L'alimentation est déjà initialisée.", "blue")
 
     try:
-        patch_is_open = (config.serial_patch_fmcw is not None and 
-                        getattr(getattr(config.serial_patch_fmcw, 'ser', None), 'is_open', False))
+        target_capsys_is_open = (config.serial_target_capsys is not None and getattr(getattr(config.serial_target_capsys, 'ser', None), 'is_open', False))
+    except (AttributeError, TypeError):
+        target_capsys_is_open = False
+    if not target_capsys_is_open:
+        status, message = init_target_capsys(log, config)
+        log(message, "blue")
+        if status != 0:
+            all_ok = 0
+            if config.serial_target_capsys is not None:
+                config.serial_target_capsys.close()
+            config.serial_target_capsys = None
+            return_msg["infos"].append(f"{message}")
+            return status, return_msg
+
+    try:
+        patch_is_open = (config.serial_patch_fmcw is not None and getattr(getattr(config.serial_patch_fmcw, 'ser', None), 'is_open', False))
     except (AttributeError, TypeError):
         patch_is_open = False
-        
     if not patch_is_open:
         status, message = init_patch_fmcw(log, config)
         log(message, "blue")
         if status != 0:
+            all_ok = 0
             if config.serial_patch_fmcw is not None:
                 config.serial_patch_fmcw.close()
             config.serial_patch_fmcw = None
@@ -377,15 +368,14 @@ def run_step(log, config: configuration.AppConfig):
         log("Le patch est déjà initialisé.", "blue")
 
     try:
-        target_is_open = (config.target is not None and 
-                         getattr(getattr(config.target, 'ser', None), 'is_open', False))
+        target_is_open = (config.target is not None and getattr(getattr(config.target, 'ser', None), 'is_open', False))
     except (AttributeError, TypeError):
         target_is_open = False
-        
     if not target_is_open:
         status, message = init_target(log, config)
         log(message, "blue")
         if status != 0:
+            all_ok = 0
             if config.target is not None:
                 config.target.close()
             config.target = None
@@ -394,6 +384,14 @@ def run_step(log, config: configuration.AppConfig):
     else:
         log("La cible est déjà initialisée.", "blue")
 
+    if all_ok == 0:
+        config.multimeter_current = None
+        config.alim = None
+        config.serial_patch_fmcw = None
+        config.serial_target_capsys = None
+        return_msg["infos"].append("Erreur lors de l'initialisation des instruments.")
+        return 1, return_msg
+    
     if config.serial_patch_fmcw is None:
         return_msg["infos"].append(f"{step_name} : le patch n'est pas initialisé.")
         return 1, return_msg

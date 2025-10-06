@@ -49,7 +49,7 @@ def run_step(log, config: configuration.AppConfig):
     for attempt in range(1, config.max_retries + 1):
         current = round(float(config.multimeter_current.meas()), 3)
         log(f"Courant mesuré : {current}{current_unit} ; min={current_min}{current_unit} ; max={current_max}{current_unit}", "blue")
-        id = config.save_value(step_name_id, config.configItems.tx_current.key, current, current_unit, current_min, current_max)
+        id = config.save_value(step_name_id, "TX_CURRENT_A", current, current_unit, current_min, current_max)
         if current > current_max or current < current_min:
             if attempt < config.max_retries:
                 log(f"Réessaie de mesurer le courant... (tentative {attempt + 1}/{config.max_retries})", "yellow")
@@ -92,7 +92,7 @@ def run_step(log, config: configuration.AppConfig):
         freq = float(response[12].split("\n")[1].replace("GHz", "")) * 1e9  # Convert GHz to Hz
         power = round(float(response[14].replace("dBm", "")) + offset_power, 1)
         log(f"Fréquence mesurée : {freq}{freq_unit} ; min={freq_min}{freq_unit} ; max={freq_max}{freq_unit}", "blue")
-        id_freq = config.save_value(step_name_id, config.configItems.frequency_tx.key, freq, freq_unit, min_value=freq_min, max_value=freq_max)
+        id_freq = config.save_value(step_name_id, "TX_FREQ_Hz", freq, freq_unit, min_value=freq_min, max_value=freq_max)
         log(f"Puissance mesurée : {power}dBm ; min={power_min}dBm ; max={power_max}dBm", "blue")
         id_power = config.save_value(step_name_id, "TX_EIRP_dBm", power, "dBm", min_value=power_min, max_value=power_max)
         if freq < freq_min or freq > freq_max:

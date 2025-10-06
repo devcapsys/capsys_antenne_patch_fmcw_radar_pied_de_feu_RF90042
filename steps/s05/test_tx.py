@@ -9,7 +9,7 @@ if __name__ == "__main__":
 import time
 import configuration  # Custom
 from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseManager, DatabaseConfig) # Custom
-from modules.capsys_serial_instrument_manager.kts1.cible_kts1 import Kts1Manager
+from modules.capsys_serial_instrument_manager.kts1.cible_kts1 import Kts1Manager # Custom
 
 def get_info():
     return "Cette étape teste le fonctionnement de TX."

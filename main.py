@@ -24,9 +24,11 @@ ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("my_unique_app_id"
 class TestThread(QThread):
     """Thread to execute test steps in the background, emitting signals for UI updates and handling test logic."""
     update_step = pyqtSignal(int, str, bool, str)
+    update_step_percentage = pyqtSignal(int, int)  # New signal for percentage updates
     log_message = pyqtSignal(str, str)
     finished = pyqtSignal()
     step_failed = pyqtSignal(str, str)
+    request_user_input = pyqtSignal(str, str, object, int)  # title, message, callback, font_size
 
     def __init__(self, skipped_steps=None, generate_report=False):
         """Initialize the test thread and load test steps."""
@@ -50,6 +52,14 @@ class TestThread(QThread):
             except json.JSONDecodeError:
                 pass
         self.log_message.emit(message, color)
+
+    def emit_step_percentage(self, step_idx, percentage):
+        """Emit a signal to update the percentage of a specific step."""
+        self.update_step_percentage.emit(step_idx, percentage)
+
+    def request_user_text_input(self, title, message, callback, font_size=12):
+        """Request text input from the user via a dialog box."""
+        self.request_user_input.emit(title, message, callback, font_size)
 
     def load_steps(self) -> List[Tuple[str, Callable, Callable]]:
         """Dynamically load test step modules from the 'steps' directory and return a list of (name, run_step, get_info) tuples."""
@@ -122,7 +132,11 @@ class TestThread(QThread):
             self.update_step.emit(idx, "⏳", 2, "Étape en cours")
 
             try:
-                    success, message = step_func(self.emit_log_message, config)
+                    # Create percentage update function for this step
+                    update_percentage_func = lambda percentage: self.emit_step_percentage(idx, percentage)
+                    # Store test_thread reference in config for user input requests
+                    config.test_thread = self
+                    success, message = step_func(self.emit_log_message, config, update_percentage_func)
                     if isinstance(message, dict):
                         message = json.dumps(message, ensure_ascii=False, indent=2)
             except (Exception) as e:  # If any bug in steps, we treat them as test passed NOK
@@ -222,6 +236,7 @@ class MainWindow(QWidget):
         self.setWindowIcon(QIcon(configuration.CURRENTH_PATH + "\\logo-big.png"))
 
         self.steps_widgets = []
+        self.step_row_widgets = []
         self.step_infos = []
         self.step_messages = {}
         self.skip_checkboxes = []
@@ -287,10 +302,10 @@ class MainWindow(QWidget):
             self.test_thread.quit()
             self.test_thread.wait()
         try:
-            if hasattr(config, 'db') and config.db is not None:
-                config.db.disconnect()
+            # Call cleanup to release all resources (db, mcp_manager, daq_manager, serDut)
+            config.cleanup()
         except Exception as e:
-            print(f"Erreur lors de la fermeture de la connexion MySQL : {e}")
+            print(f"Erreur lors du cleanup : {e}")
 
         if a0 is not None:
             a0.accept()
@@ -304,59 +319,111 @@ class MainWindow(QWidget):
         title.setStyleSheet("font-weight: bold; font-size: 24px;")
         main_layout.addWidget(title)
 
+        # Add global progress bar
+        from PyQt6.QtWidgets import QProgressBar
+        self.global_progress_bar = QProgressBar()
+        self.global_progress_bar.setMinimum(0)
+        self.global_progress_bar.setMaximum(100)
+        self.global_progress_bar.setValue(0)
+        self.global_progress_bar.setTextVisible(True)
+        self.global_progress_bar.setFormat("%p%")
+        self.global_progress_bar.setStyleSheet("""
+            QProgressBar {
+                border-radius: 5px;
+                text-align: center;
+                font-size: 14px;
+                font-weight: bold;
+                height: 30px;
+            }
+            QProgressBar::chunk {
+                background-color: green;
+                border-radius: 3px;
+            }
+        """)
+        main_layout.addWidget(self.global_progress_bar)
+
+        # Create a scrollable area for the steps with limited height
+        from PyQt6.QtWidgets import QScrollArea, QFrame
+        self.steps_scroll_area = QScrollArea()
+        self.steps_scroll_area.setWidgetResizable(True)
+        self.steps_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.steps_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        # Create a widget to contain all the steps
+        steps_container = QFrame()
+        steps_layout = QVBoxLayout(steps_container)
+        steps_layout.setContentsMargins(5, 5, 5, 5)
+        
         # Create a horizontal layout for the steps
         self.steps = self.load_step_names()
+        self.step_row_widgets = []  # Store row widgets for scrolling
         for i, step in enumerate(self.steps):
-            row = QHBoxLayout()
+            # Create a frame for each step row to make it easier to scroll to
+            row_frame = QFrame()
+            row_frame.setFrameStyle(QFrame.Shape.NoFrame)
+            row = QHBoxLayout(row_frame)
+            row.setContentsMargins(0, 2, 0, 2)
+            
             index_label = QLabel(str(i + 1))
             index_label.setFixedWidth(30)
             index_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-            row.addWidget(index_label)
+            row.addWidget(index_label, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             step_str: str = str(step)  # Ensure step is treated as string
             label_step_name = QLabel(step_str.replace('_', ' ').capitalize())
             label_step_name.setStyleSheet("color: white; font-size: 14px;")
-            row.addWidget(label_step_name)
+            row.addWidget(label_step_name, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-            label_status = QLabel("⏳")
+            label_status = QLabel(f"{i + 1} ⏳")
             label_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label_status.setFixedWidth(40)
+            label_status.setFixedWidth(100)
             label_status.setStyleSheet("font-size: 16px;")
-            row.addWidget(label_status)
+            row.addWidget(label_status, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             # Add a skip checkbox for each step (except for initialisation and fin_du_test)
             if step.lower() not in ["initialisation", "fin_du_test"]:
                 skip_checkbox = QCheckBox("Sauter")
                 skip_checkbox.setFixedWidth(80)
                 skip_checkbox.setStyleSheet("font-size: 11px;")
-                row.addWidget(skip_checkbox)
+                row.addWidget(skip_checkbox, alignment=Qt.AlignmentFlag.AlignVCenter)
                 self.skip_checkboxes.append(skip_checkbox)
             else:
                 # Add a placeholder widget to maintain layout consistency
                 placeholder = QLabel("")
                 placeholder.setFixedWidth(80)
-                row.addWidget(placeholder)
-                self.skip_checkboxes.append(None)  # Add None to maintain index alignment
+                placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                row.addWidget(placeholder, alignment=Qt.AlignmentFlag.AlignVCenter)
+                # Store the placeholder widget so we can hide/show it in simple mode
+                self.skip_checkboxes.append(placeholder)
 
             # Add an info button for each step
             info_button = QPushButton("ℹ️")
             info_button.clicked.connect(lambda checked, idx=i: self.show_step_info(idx))
             info_button.setFixedWidth(50)
             info_button.setStyleSheet("font-size: 14px;")
-            row.addWidget(info_button)
+            row.addWidget(info_button, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             # Add a message button for each step
             message_button = QPushButton("❗")
             message_button.clicked.connect(lambda checked, idx=i: self.show_step_message(idx))
             message_button.setFixedWidth(50)
             message_button.setStyleSheet("font-size: 14px;")
-            row.addWidget(message_button)
+            row.addWidget(message_button, alignment=Qt.AlignmentFlag.AlignVCenter)
             # Initialize the message as empty
             self.step_messages[i] = "Lancer un test pour avoir des informations"
 
-            main_layout.addLayout(row)
-
+            steps_layout.addWidget(row_frame)
+            self.step_row_widgets.append(row_frame)
             self.steps_widgets.append((label_step_name, label_status))
+        
+        # Set the steps container in the scroll area
+        self.steps_scroll_area.setWidget(steps_container)
+        
+        # Store reference to steps container for scrolling
+        self.steps_container = steps_container
+        
+        # Add the scroll area to the main layout with stretch factor 1 (50% max height will be set dynamically)
+        main_layout.addWidget(self.steps_scroll_area, stretch=1)
 
         # Create a QTextEdit for the log area
         self.log_label = QLabel("LOG")
@@ -413,6 +480,66 @@ class MainWindow(QWidget):
         message = self.step_messages.get(idx, "Aucun message disponible.")  # Retrieves the stored message
         QMessageBox.information(self, f"Message Étape {idx + 1}", message)
 
+    def show_user_input_dialog(self, title, message, callback, font_size=14):
+        """Display an input dialog to get text from the user and call the callback with the result."""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
+        from PyQt6.QtGui import QFont
+        from PyQt6.QtCore import Qt
+        
+        # Create a custom dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setMinimumWidth(600)
+        
+        layout = QVBoxLayout()
+        
+        # Create label with message
+        label = QLabel(message)
+        label_font = QFont()
+        label_font.setPointSize(font_size)
+        label.setFont(label_font)
+        label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+        layout.addWidget(label)
+        
+        # Create input field
+        input_field = QLineEdit()
+        input_field.setFont(label_font)
+        # Enable selection and copy
+        input_field.setReadOnly(False)
+        input_field.setFocus()
+        layout.addWidget(input_field)
+        
+        # Create buttons
+        button_layout = QHBoxLayout()
+        ok_button = QPushButton("OK")
+        cancel_button = QPushButton("Annuler")
+        
+        def on_ok():
+            dialog.accept()
+        
+        def on_cancel():
+            dialog.reject()
+        
+        ok_button.clicked.connect(on_ok)
+        cancel_button.clicked.connect(on_cancel)
+        input_field.returnPressed.connect(on_ok)
+        
+        button_layout.addWidget(ok_button)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+        
+        dialog.setLayout(layout)
+        
+        # Execute dialog
+        result = dialog.exec()
+        text = input_field.text()
+        
+        if result == QDialog.DialogCode.Accepted:
+            callback(text)
+        else:
+            callback(None)
+
     def update_window_size(self):
         """Update window size based on current mode."""
         is_simple = self.toggle_mode_button.isChecked()
@@ -421,11 +548,37 @@ class MainWindow(QWidget):
             self.setMaximumHeight(self.screen_geometry.height())  # Use screen height as max
             self.setMinimumHeight(0)  # Remove minimum height constraint
             self.showNormal()  # Exit fullscreen if in fullscreen
+            # En mode simple, définir une hauteur maximale plus petite
+            self.setMaximumHeight(600)  # Limiter la hauteur en mode simple
             self.adjustSize()  # Resize to minimum needed
         else:
             # Mode complet : toujours en plein écran
             self.setMaximumHeight(self.screen_geometry.height())  # Use screen height as max
             self.showMaximized()  # Always fullscreen in complete mode
+        
+        # Update steps scroll area height to max 50% of window height
+        self.update_steps_height()
+
+    def resizeEvent(self, a0):
+        """Handle window resize events and update steps height accordingly."""
+        super().resizeEvent(a0)
+        # Update steps scroll area height when window is resized
+        if hasattr(self, 'steps_scroll_area'):
+            self.update_steps_height()
+
+    def update_steps_height(self):
+        """Limit the steps scroll area height based on current mode."""
+        is_simple = self.toggle_mode_button.isChecked()
+        
+        if is_simple:
+            # En mode simple, limiter à une hauteur fixe raisonnable
+            max_steps_height = 300  # Hauteur fixe pour le mode simple
+        else:
+            # En mode complet, utiliser 50% de la hauteur de la fenêtre
+            current_height = self.height()
+            max_steps_height = current_height // 2
+        
+        self.steps_scroll_area.setMaximumHeight(max_steps_height)
 
     def toggle_simple_mode(self):
         """Toggle between simple and complete display modes for the UI."""
@@ -457,6 +610,10 @@ class MainWindow(QWidget):
                     and widget != self.quit_button
                 ):
                     widget.setVisible(visible)
+        
+        # Update steps height after visibility changes
+        if hasattr(self, 'steps_scroll_area'):
+            self.update_steps_height()
 
     def load_step_names(self):
         """Load and return the list of step names from the 'steps' directory."""
@@ -559,18 +716,21 @@ class MainWindow(QWidget):
         self.log_area.clear()
         self.reset_steps()
 
-        # Get skipped steps from checkboxes
+        # Get skipped steps from checkboxes (only consider actual QCheckBox objects)
         skipped_steps = set()
         for i, checkbox in enumerate(self.skip_checkboxes):
-            if checkbox is not None and checkbox.isChecked():
+            # checkbox may be a QLabel placeholder for some steps; only check QCheckBox
+            if isinstance(checkbox, QCheckBox) and checkbox.isChecked():
                 skipped_steps.add(i)
 
         generate_report = self.generate_report_checkbox.isChecked()
         self.test_thread = TestThread(skipped_steps, generate_report)
         self.test_thread.update_step.connect(self.update_step_status)
+        self.test_thread.update_step_percentage.connect(self.update_step_percentage)
         self.test_thread.log_message.connect(self.append_log)
         self.test_thread.finished.connect(self.test_finished)
         self.test_thread.step_failed.connect(self.handle_step_failure)
+        self.test_thread.request_user_input.connect(self.show_user_input_dialog)
         self.test_thread.start()
 
     def handle_step_failure(self, step_name, message):
@@ -623,18 +783,29 @@ class MainWindow(QWidget):
 
     def reset_steps(self):
         """Reset the step status indicators in the UI to their initial state."""
-        for label_step_name, label_status in self.steps_widgets:
+        for idx, (label_step_name, label_status) in enumerate(self.steps_widgets):
             label_step_name.setStyleSheet("color: white; font-size: 14px;")
-            label_status.setText("⏳")
+            step_number = idx + 1
+            label_status.setText(f"{step_number} ⏳")
+        # Reset global progress bar
+        self.global_progress_bar.setValue(0)
 
-    def update_step_status(self, idx, status, success, message=""):
+    def update_step_status(self, idx, status, success, message="", percentage=None):
         """Update the status and color of a step in the UI and store its message."""
         label_step_name, label_status = self.steps_widgets[idx]
-        label_status.setText(status)
+        # Add step number to the left of the status, with optional percentage
+        step_number = idx + 1
+        if percentage is not None:
+            status_with_number = f"{percentage}% {step_number} {status}"
+        else:
+            status_with_number = f"{step_number} {status}"
+        label_status.setText(status_with_number)
         if success == 0:
             label_step_name.setStyleSheet("color: green; font-size: 14px;")
         elif "Étape en cours" in message:
             label_step_name.setStyleSheet("color: yellow; font-size: 14px;")
+            # Scroll to the current step when it's in progress
+            self.scroll_to_step(idx)
         elif "Étape sautée par l'utilisateur" in message:
             label_step_name.setStyleSheet("color: orange; font-size: 14px;")
         else:
@@ -643,6 +814,59 @@ class MainWindow(QWidget):
         # Store the step message
         self.step_messages[idx] = message
         # self.append_log(f"Message de l'étape {idx + 1} : {message}", "blue")
+        
+        # Update global progress bar
+        self.update_global_progress()
+
+    def update_step_percentage(self, idx, percentage):
+        """Update only the percentage of a step without changing its status."""
+        if idx < len(self.steps_widgets):
+            label_step_name, label_status = self.steps_widgets[idx]
+            current_text = label_status.text()
+            step_number = idx + 1
+            
+            # Extract the current status symbol from the text
+            if "✅" in current_text:
+                status = "✅"
+            elif "❌" in current_text:
+                status = "❌"
+            elif "⏳" in current_text:
+                status = "⏳"
+            elif "⏭️" in current_text:
+                status = "⏭️"
+            else:
+                status = "⏳"  # Default status
+            
+            # Update with percentage
+            status_with_percentage = f"{percentage}% {step_number} {status}"
+            label_status.setText(status_with_percentage)
+
+    def scroll_to_step(self, idx):
+        """Scroll the steps area to make the specified step visible."""
+        if (hasattr(self, 'steps_scroll_area') and hasattr(self, 'step_row_widgets') 
+            and idx < len(self.step_row_widgets)):
+            # Get the widget for the current step
+            step_widget = self.step_row_widgets[idx]
+            # Scroll to make the step visible
+            self.steps_scroll_area.ensureWidgetVisible(step_widget, 50, 50)
+
+    def update_global_progress(self):
+        """Update the global progress bar based on completed steps."""
+        if not self.steps_widgets:
+            return
+        
+        total_steps = len(self.steps_widgets)
+        completed_steps = 0
+        
+        # Count completed steps (both success and failed)
+        for _, label_status in self.steps_widgets:
+            status_text = label_status.text()
+            if "✅" in status_text or "❌" in status_text or "⏭️" in status_text:
+                completed_steps += 1
+        
+        # Calculate progress percentage
+        progress_percentage = int((completed_steps / total_steps) * 100) if total_steps > 0 else 0
+        self.global_progress_bar.setValue(progress_percentage)
 
     def append_log(self, message, color="white"):
         """Append a log message to the log area and save it to the log file."""
@@ -722,12 +946,16 @@ class MainWindow(QWidget):
         """Handle the end of the test sequence, update the log, and store results in the database."""
         from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
         
-        all_success = all(label_status.text() == "✅" for _, label_status in self.steps_widgets)
-        any_error = any(label_status.text() == "❌" for _, label_status in self.steps_widgets)
+        # Check if all steps are successful (contains ✅), considering percentage and step number
+        all_success = all("✅" in label_status.text() for _, label_status in self.steps_widgets)
+        # Check if any step has an error (contains ❌)
+        any_error = any("❌" in label_status.text() for _, label_status in self.steps_widgets)
+        # Check if any step was skipped (contains ⏭️)
+        any_skipped = any("⏭️" in label_status.text() for _, label_status in self.steps_widgets)
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        if all_success:
+        if all_success and not any_skipped:
             color = "green"
             message = "Test OK"
         elif any_error:
@@ -792,7 +1020,7 @@ def main():
         # config.arg.of = "1"
         # config.arg.article = "radar"
         # config.arg.indice = "1"
-        # config.arg.product_list_id = "4"
+        config.arg.product_list_id = configuration.PRODUCT_LIST_ID_DEFAULT
         # config.arg.user = "root"
         # config.arg.password = "root"
         # config.arg.host = "127.0.0.1"

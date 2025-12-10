@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Any
 import atexit
 from modules.capsys_serial_instrument_manager.capsys_serial_instrument_manager import SerialInstrumentManager  # Custom
 from modules.capsys_serial_instrument_manager.mp730424.multimeter_mp730424 import Mp730424Manager  # Custom
@@ -13,7 +13,7 @@ CURRENTH_PATH = os.path.dirname(__file__)
 NAME_GUI = "Test antenne patch FMCW radar pied de feu RF90042"
 CONFIG_JSON_NAME = "config_antenne_patch_fmcw_radar_pied_de_feu_RF90042"
 PRODUCT_LIST_ID_DEFAULT = "3"
-VERSION = "V1.0.0"
+VERSION = "V1.0.1"
 HASH_GIT = "DEBUG" # Will be replaced by the Git hash when compiled with command .\build.bat
 AUTHOR = "Thomas GERARDIN"
 PRINTER_NAME = "EPSON TM-T20III Receipt"
@@ -162,6 +162,7 @@ class Arg:
 class AppConfig:
     def __init__(self):
         self.arg = Arg()
+        self.test_thread: Any = None  # Reference to TestThread for user input requests
         self.db_config: Optional[DatabaseConfig] = None
         self.db: Optional[GenericDatabaseManager] = None
         self.device_under_test_id: Optional[int] = None

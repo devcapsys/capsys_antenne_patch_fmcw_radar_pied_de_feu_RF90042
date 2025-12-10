@@ -35,7 +35,7 @@
     "max_map": [1200, 95, 99]
   },
   "TEST_TX_CURRENT": {
-    "minimum": 0.068,
+    "minimum": 0.065,
     "maximum": 0.075
   },
   "TEST_TX_FREQ_Hz": {

@@ -94,6 +94,7 @@ if __name__ == "__main__":
     # Initialize config
     config = configuration.AppConfig()
     config.arg.show_all_logs = False
+    config.arg.product_list_id = configuration.PRODUCT_LIST_ID_DEFAULT
 
     # Initialize Database
     config.db_config = DatabaseConfig(password="root")

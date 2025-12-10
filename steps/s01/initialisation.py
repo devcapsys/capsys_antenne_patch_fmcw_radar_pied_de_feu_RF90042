@@ -17,14 +17,10 @@ from configuration import VERSION, get_project_path
 def get_info():
     return "Cette étape crée device_under_test, initialise le DAQ, l'alimentation et le MCP23017."    
 
-def init_database_and_checks(log, config: configuration.AppConfig):
+def init_database_and_checks(log, config: configuration.AppConfig, update_percentage=lambda x: None):
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
         return 1, "config.db n'est pas initialisé."
-    # Checks that all attributes of config.arg are not empty
-    for field, value in vars(config.arg).items():
-        if value is None:
-            return 1, f"Pas de valeur sur {field}"
 
     # Check operator format
     if not isinstance(config.arg.operator, str) or len(config.arg.operator.split()) < 2:
@@ -37,6 +33,10 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     operator = Operator(**operators[0])
     operator_id = operator.id
 
+    if config.arg.product_list_id != configuration.PRODUCT_LIST_ID_DEFAULT:
+        return_msg = f"Le product_list_id spécifié ({config.arg.product_list_id}) ne correspond pas au product_list_id par défaut ({configuration.PRODUCT_LIST_ID_DEFAULT})."
+        return (1, return_msg)
+    
     # Retrieve product_list from database
     config.arg.product_list = config.db.get_by_id("product_list", config.arg.product_list_id)
     if not config.arg.product_list:
@@ -44,7 +44,7 @@ def init_database_and_checks(log, config: configuration.AppConfig):
 
     # Retrieve bench_composition from database
     bench_composition_id = config.arg.product_list.get("bench_composition_id")
-    bench_composition_raw = config.db.get_by_column("bench_composition", "id", bench_composition_id)
+    bench_composition_raw = config.db.get_by_column("bench_composition", "bench_composition_id", bench_composition_id)
     bench_composition = bench_composition_raw if bench_composition_raw else []
     if not bench_composition:
         return (1, "Problème lors de la récupération de la composition du banc dans la base de données.")
@@ -59,12 +59,15 @@ def init_database_and_checks(log, config: configuration.AppConfig):
         return (1, "Problème lors de la récupération des périphériques externes dans la base de données.")
 
     # Retrieve script from database
-    script_data = config.db.get_by_id("script", config.arg.product_list_id)
+    script_data = config.db.get_by_column("script", "product_list_id", config.arg.product_list_id)
+    for script in script_data:
+        if script.get("valid") == 0:
+            script_data.remove(script)
     if not script_data:
         return (1, "Problème lors de la récupération du script dans la base de données.")
     # Remove the "file" key if it exists because it's too large to store in the database
-    if "file" in script_data:
-        del script_data["file"]
+    if "file" in script_data[0]:
+        del script_data[0]["file"]
     script = script_data
 
     # Retrieve parameters_group from database
@@ -86,12 +89,13 @@ def init_database_and_checks(log, config: configuration.AppConfig):
     # Retrieve and save config.json from database
     # config.json is used to store values used during the test
     data_str = None
-    txt = ""
+    id = None
     for parameter in parameters:
         config_json_name = configuration.CONFIG_JSON_NAME
         if parameter.get("name") == config_json_name:
             data_str = parameter.get("file")
-            txt = f"Le fichier de config utilisé correspond à la ligne id={parameter.get('id')} de la table parameters"
+            id = parameter.get("id")
+            txt = f"Le fichier de config utilisé correspond à la ligne id={id} de la table parameters"
             log(txt, "blue")
     if data_str == None:
         return (1, "Le fichier config n'est pas présent dans la ddb.")
@@ -154,7 +158,7 @@ def init_database_and_checks(log, config: configuration.AppConfig):
 
     config.save_value(step_name_id, "VERSION", VERSION)
     config.save_value(step_name_id, "data_used_for_test", json.dumps(data, indent=4, ensure_ascii=False, default=str))
-    config.save_value(step_name_id, "id_fichier_config", txt)
+    config.save_value(step_name_id, "id_fichier_config", id)
 
     return 0, step_name_id
 
@@ -389,6 +393,7 @@ if __name__ == "__main__":
     # Initialize config
     config = configuration.AppConfig()
     config.arg.show_all_logs = False
+    config.arg.product_list_id = configuration.PRODUCT_LIST_ID_DEFAULT
     
     # Initialize Database
     config.db_config = DatabaseConfig(password="root")

@@ -11,7 +11,7 @@ from configuration import get_project_path
 def get_info():
     return "Cette étape effectue le nettoyage et la fermeture des ressources en fin de test."
 
-def run_step(log, config: configuration.AppConfig):
+def run_step(log, config: configuration.AppConfig, update_percentage=lambda x: None):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
     return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized

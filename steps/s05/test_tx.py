@@ -12,7 +12,7 @@ def get_info():
     return "Cette étape teste le fonctionnement de TX."
 
 
-def run_step(log, config: configuration.AppConfig):
+def run_step(log, config: configuration.AppConfig, update_percentage=lambda x: None):
     step_name = os.path.splitext(os.path.basename(__file__))[0]
     return_msg = {"step_name": step_name, "infos": []}
     # Ensure db is initialized

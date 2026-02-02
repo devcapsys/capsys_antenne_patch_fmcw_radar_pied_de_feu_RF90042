@@ -242,7 +242,7 @@ def init_target_capsys(log, config: configuration.AppConfig):
     config.serial_target_capsys.send_command("set cible off\r", expected_response="ok", timeout=2)
     return 0, "Target Capsys initialisée avec succès."
 
-def run_step(log, config: configuration.AppConfig):
+def run_step(log, config: configuration.AppConfig, update_percentage=lambda x: None):
     all_ok = 1
     step_name = os.path.splitext(os.path.basename(__file__))[0]
     return_msg = {"step_name": step_name, "infos": []}

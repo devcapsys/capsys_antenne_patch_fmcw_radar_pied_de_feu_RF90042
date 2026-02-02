@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-import sys
-import os
+
+import sys, os, json
 if __name__ == "__main__":
     BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     if BASE_DIR not in sys.path:
         sys.path.insert(0, BASE_DIR)
 from datetime import datetime
-import json, time
 from modules.capsys_serial_instrument_manager.mp730424.multimeter_mp730424 import Mp730424Manager  # Custom
 from modules.capsys_serial_instrument_manager.rsd3305p import alimentation_rsd3305p  # Custom
 from modules.capsys_serial_instrument_manager.kts1.cible_kts1 import Kts1Manager  # Custom
@@ -41,35 +40,7 @@ def init_database_and_checks(log, config: configuration.AppConfig, update_percen
     config.arg.product_list = config.db.get_by_id("product_list", config.arg.product_list_id)
     if not config.arg.product_list:
         return 1, "Aucun produit trouvé dans la base de données."
-
-    # Retrieve bench_composition from database
-    bench_composition_id = config.arg.product_list.get("bench_composition_id")
-    bench_composition_raw = config.db.get_by_column("bench_composition", "bench_composition_id", bench_composition_id)
-    bench_composition = bench_composition_raw if bench_composition_raw else []
-    if not bench_composition:
-        return (1, "Problème lors de la récupération de la composition du banc dans la base de données.")
-
-    # Retrieve all externals devices from database
-    external_devices = []
-    for external_device in bench_composition:
-        external_device_data = config.db.get_by_id("external_device", external_device["external_device_id"])
-        if external_device_data:
-            external_devices.append(external_device_data)
-    if not external_devices:
-        return (1, "Problème lors de la récupération des périphériques externes dans la base de données.")
-
-    # Retrieve script from database
-    script_data = config.db.get_by_column("script", "product_list_id", config.arg.product_list_id)
-    for script in script_data:
-        if script.get("valid") == 0:
-            script_data.remove(script)
-    if not script_data:
-        return (1, "Problème lors de la récupération du script dans la base de données.")
-    # Remove the "file" key if it exists because it's too large to store in the database
-    if "file" in script_data[0]:
-        del script_data[0]["file"]
-    script = script_data
-
+    
     # Retrieve parameters_group from database
     parameters_group_id = config.arg.product_list.get("parameters_group_id")
     parameters_group_raw = config.db.get_by_column("parameters_group", "parameters_group_id", parameters_group_id)
@@ -149,9 +120,6 @@ def init_database_and_checks(log, config: configuration.AppConfig, update_percen
         "device_under_test_id": config.device_under_test_id,
         "operator": operator.to_dict() if hasattr(operator, 'to_dict') else vars(operator),
         "product_list": config.arg.product_list,  # already a dictionary
-        "bench_composition": bench_composition,  # already a list of dictionaries
-        "external_devices": external_devices,   # already a list of dictionaries
-        "script": script,                       # already a dictionary
         "parameters_group": parameters_group,   # already a list of dictionaries
         "parameters": parameters,               # already a list of dictionaries
     }

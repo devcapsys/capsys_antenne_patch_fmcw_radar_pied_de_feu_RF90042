@@ -3,7 +3,7 @@
 import sys
 import importlib.util
 import os
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Optional
 from modules.capsys_mysql_command.capsys_mysql_command import (GenericDatabaseManager, DatabaseConfig) # Custom
 from PyQt6.QtGui import QIcon, QCloseEvent
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QMessageBox, QCheckBox)
@@ -111,13 +111,17 @@ class TestThread(QThread):
         error_found = False
         failure_message = ""
 
-        for idx, (step_name, step_func, _) in enumerate(self.steps):
+        idx = 0
+        while idx < len(self.steps):
+            step_name, step_func, _ = self.steps[idx]
+            
             if not self.running:
                 error_found = True  # Mark test as NO if interrupted
                 break
 
             # If an error occurs, only the final step is executed
             if error_found and not "fin_du_test" in step_name:
+                idx += 1
                 continue
 
             # Skip step if it's marked to be skipped
@@ -125,6 +129,7 @@ class TestThread(QThread):
                 step_name_str: str = str(step_name)
                 self.emit_log_message(f"Étape sautée : {step_name_str.replace('s', '', 1).replace('_', ' ').capitalize()}", "orange")
                 self.update_step.emit(idx, "⏭️", 2, "Étape sautée par l'utilisateur")
+                idx += 1
                 continue
 
             step_name_str: str = str(step_name)
@@ -142,6 +147,13 @@ class TestThread(QThread):
             except (Exception) as e:  # If any bug in steps, we treat them as test passed NOK
                 success = 1
                 message = f"Exception : {e}"
+
+            # Vérification et conversion de message en str si nécessaire
+            if not isinstance(message, str):
+                try:
+                    message = str(message)
+                except Exception:
+                    message = "[Message non affichable]"
 
             if success == 0:  # Test passed OK
                 self.emit_log_message(message, "green")
@@ -193,6 +205,9 @@ class TestThread(QThread):
                 self.step_failed.emit(step_name, message_str)
                 error_found = True
                 failure_message = message_str
+            
+            # Move to next step
+            idx += 1
 
         # Update of the overall result in the database
         if error_found or self.skipped_steps:
@@ -233,7 +248,7 @@ class MainWindow(QWidget):
         today = datetime.now().strftime("%Y-%m-%d")
         self.log_file_path = os.path.join(log_dir, f"log_{today}.txt")
         self.setWindowTitle(f"{config.arg.name} - Version : {config.arg.version} - Commit : {config.arg.hash_git} - Auteur : {config.arg.author}")
-        self.setWindowIcon(QIcon(configuration.CURRENTH_PATH + "\\logo-big.png"))
+        self.setWindowIcon(QIcon(configuration.CURRENT_PATH + "\\assets\\logo-big.png"))
 
         self.steps_widgets = []
         self.step_row_widgets = []

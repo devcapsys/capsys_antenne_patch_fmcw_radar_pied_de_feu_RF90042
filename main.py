@@ -162,33 +162,32 @@ class TestThread(QThread):
             if success == 0:  # Test passed OK
                 self.emit_log_message(message, "green")
             elif success == 1:  # Test passed NOK
-                if config.printer and config.arg.product_list:
-                    if config.arg.product_list.get("info") != "debug":
-                        try:
-                            msg_obj = json.loads(message) if isinstance(message, str) else message
-                        except json.JSONDecodeError:
-                            msg_obj = message
-                        # If dict, extract step_name and pass the rest as infos
-                        if isinstance(msg_obj, dict) and "step_name" in msg_obj:
-                            label = msg_obj["step_name"]
-                            infos = []
-                            # If 'infos' exists and is a list, only its elements are displayed
-                            if "infos" in msg_obj and isinstance(msg_obj["infos"], list):
-                                for v in msg_obj["infos"]:
-                                    infos.append({"type": "text", "content": str(v), "align": "l", "weight": 500})
-                            else:
-                                for k, v in msg_obj.items():
-                                    if k != "step_name":
-                                        infos.append({"type": "text", "content": f"{k} : {v}", "align": "l", "weight": 500})
+                if config.printer:
+                    try:
+                        msg_obj = json.loads(message) if isinstance(message, str) else message
+                    except json.JSONDecodeError:
+                        msg_obj = message
+                    # If dict, extract step_name and pass the rest as infos
+                    if isinstance(msg_obj, dict) and "step_name" in msg_obj:
+                        label = msg_obj["step_name"]
+                        infos = []
+                        # If 'infos' exists and is a list, only its elements are displayed
+                        if "infos" in msg_obj and isinstance(msg_obj["infos"], list):
+                            for v in msg_obj["infos"]:
+                                infos.append({"type": "text", "content": str(v), "align": "l", "weight": 500})
                         else:
-                            label = str(msg_obj)
-                            infos = None
-                        config.printer.custom_print_bdt(
-                            config.arg.operator,
-                            config.arg.product_list.get("info"),
-                            config.device_under_test_id,
-                            label,
-                            infos)
+                            for k, v in msg_obj.items():
+                                if k != "step_name":
+                                    infos.append({"type": "text", "content": f"{k} : {v}", "align": "l", "weight": 500})
+                    else:
+                        label = str(msg_obj)
+                        infos = None
+                    config.printer.custom_print_bdt(
+                        config.arg.operator,
+                        "(" + config.arg.product_list_id + ") : " + config.arg.article if config.arg.article else "(" + config.arg.product_list_id + "):Debug",
+                        config.device_under_test_id,
+                        label,
+                        infos)
                 self.emit_log_message(message, "red")
             else:  # Test passed with WARNING
                 self.emit_log_message(message, "yellow")

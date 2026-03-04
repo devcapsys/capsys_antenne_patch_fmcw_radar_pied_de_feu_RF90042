@@ -184,8 +184,9 @@ class TestThread(QThread):
                         infos = None
                     config.printer.custom_print_bdt(
                         config.arg.operator,
-                        "(" + config.arg.product_list_id + ") : " + config.arg.article if config.arg.article else "(" + config.arg.product_list_id + "):Debug",
+                        "(" + config.arg.product_list_id + ") " + config.arg.article if config.arg.article else "(" + config.arg.product_list_id + ")Debug",
                         config.device_under_test_id,
+                        config.arg.of,
                         label,
                         infos)
                 self.emit_log_message(message, "red")

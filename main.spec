@@ -1,6 +1,38 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os, re
 from PyInstaller.utils.hooks import collect_all
+
+def _read_version_from_configuration():
+    """Read VERSION from configuration.py without importing runtime dependencies."""
+    # In PyInstaller spec execution, __file__ may be undefined.
+    candidate_paths = [
+        os.path.abspath('configuration.py'),
+        os.path.join(os.getcwd(), 'configuration.py'),
+    ]
+
+    config_path = None
+    for candidate in candidate_paths:
+        if os.path.exists(candidate):
+            config_path = candidate
+            break
+
+    if config_path is None:
+        return 'UNKNOWN'
+
+    try:
+        with open(config_path, 'r', encoding='utf-8') as config_file:
+            content = config_file.read()
+        match = re.search(r'^VERSION\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
+    return 'UNKNOWN'
+
+_app_version = _read_version_from_configuration()
+_safe_version = re.sub(r'[<>:"/\\|?*]', '_', _app_version)
+_exe_name = f'main_{_safe_version}'
 
 # Collect data for required packages
 mysql_datas, mysql_binaries, mysql_hiddenimports = collect_all('mysql.connector')
@@ -73,7 +105,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='main',
+    name=_exe_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

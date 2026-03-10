@@ -9,11 +9,12 @@ from modules.capsys_serial_instrument_manager.kts1.cible_kts1 import Kts1Manager
 from modules.capsys_wrapper_tm_t20iii.capsys_wrapper_tm_t20III import PrinterDC  # Custom
 
 # Initialize global variables
+USER_PATH_ROOT = os.path.expanduser(r"~")
 CURRENT_PATH = os.path.dirname(__file__)
 NAME_GUI = "Test antenne patch FMCW radar pied de feu RF90042"
 CONFIG_JSON_NAME = "config_antenne_patch_fmcw_radar_pied_de_feu_RF90042"
 PRODUCT_LIST_ID_DEFAULT = "3"
-VERSION = "V1.0.3"
+VERSION = "V1.2.3"
 HASH_GIT = "DEBUG" # Will be replaced by the Git hash when compiled with command .\build.bat
 AUTHOR = "Thomas GERARDIN"
 PRINTER_NAME = "EPSON TM-T20III Receipt"
@@ -202,7 +203,7 @@ class AppConfig:
         """Save a key-value pair in the database."""
         if not self.db or not self.device_under_test_id:
             raise ValueError("Database or device under test ID is not initialized.")
-        if isinstance(value, float):
+        if isinstance(value, float) or isinstance(value, int):
             table = "skvp_float"
             col = "val_float"
             data = {"step_name_id": step_name_id, "key": key, col: value, "unit": unit, "min_configured": min_value, "max_configured": max_value, "valid": valid}
@@ -219,7 +220,7 @@ class AppConfig:
             col = "val_json"
             data = {"step_name_id": step_name_id, "key": key, col: value}
         else:
-            return "Type de valeur non supporté."
+            raise ValueError("Type de valeur non supporté.")
         id = self.db.create(table, data)
         return id
 

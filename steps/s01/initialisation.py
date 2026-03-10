@@ -16,14 +16,17 @@ from configuration import VERSION, get_project_path
 def get_info():
     return "Cette étape crée device_under_test, initialise le DAQ, l'alimentation et le MCP23017."    
 
-def init_database_and_checks(log, config: configuration.AppConfig, update_percentage=lambda x: None):
+def init_database_and_checks(log, config: configuration.AppConfig):
     # Ensure db is initialized
     if not hasattr(config, "db") or config.db is None:
         return 1, "config.db n'est pas initialisé."
-
-    # Check operator format
-    if not isinstance(config.arg.operator, str) or len(config.arg.operator.split()) < 2:
-        return (1, "Le champ 'operator' doit contenir au moins un prénom et un nom.")
+        
+    test_information = {
+        "product": config.arg.article,
+        "of": config.arg.of,
+        "command": config.arg.commande,
+        "index": config.arg.indice,
+    }
 
     # Retrieve operator from database
     operators = config.db.get_by_column("operator", "name", config.arg.operator.split()[1])
@@ -32,17 +35,32 @@ def init_database_and_checks(log, config: configuration.AppConfig, update_percen
     operator = Operator(**operators[0])
     operator_id = operator.id
 
-    if config.arg.product_list_id != configuration.PRODUCT_LIST_ID_DEFAULT:
-        return_msg = f"Le product_list_id spécifié ({config.arg.product_list_id}) ne correspond pas au product_list_id par défaut ({configuration.PRODUCT_LIST_ID_DEFAULT})."
-        return (1, return_msg)
+    script = config.db.get_by_column("script", "product_list_id", config.arg.product_list_id, False)
+    validated_script = None
+    for s in script:
+        if s.get("valid", 0) == 1:
+            validated_script = s
+            break
     
-    # Retrieve product_list from database
-    config.arg.product_list = config.db.get_by_id("product_list", config.arg.product_list_id)
-    if not config.arg.product_list:
+    if validated_script is None:
+        return 1, f"Aucun script validé trouvé pour product_list_id {config.arg.product_list_id}."
+    script = {
+        "id": validated_script["id"],
+        "name": validated_script["name"],
+        "sha-256": validated_script["sha-256"],
+        "debug": validated_script["debug"],
+        "path_debug": validated_script["path_debug"],
+        "info": validated_script["info"]
+    }
+
+    if config.arg.product_list_id is None:
         return 1, "Aucun produit trouvé dans la base de données."
     
     # Retrieve parameters_group from database
-    parameters_group_id = config.arg.product_list.get("parameters_group_id")
+    parameters_group_id = config.db.get_by_id("product_list", configuration.PRODUCT_LIST_ID_DEFAULT)
+    if not parameters_group_id:
+        return (1, "Aucun produit trouvé dans la base de données.")
+    parameters_group_id = parameters_group_id.get("parameters_group_id")
     parameters_group_raw = config.db.get_by_column("parameters_group", "parameters_group_id", parameters_group_id)
     parameters_group = parameters_group_raw if parameters_group_raw else []
     if not parameters_group:
@@ -57,7 +75,7 @@ def init_database_and_checks(log, config: configuration.AppConfig, update_percen
     if not parameters:
         return (1, "Problème lors de la récupération des paramètres dans la base de données.")
 
-    # Retrieve and save config.json from database
+    # Retrieve config.json from database
     # config.json is used to store values used during the test
     data_str = None
     id = None
@@ -90,7 +108,7 @@ def init_database_and_checks(log, config: configuration.AppConfig, update_percen
         except Exception as cleanup_error:
             log(f"Problème lors du nettoyage du fichier config : {cleanup_error}", "yellow")
         return 1, f"Problème lors de la création/lecture de config.json : {e}"
-
+    
     # Initialize configItems attributes from the config JSON mapping pins and keys from config.json in ddb
     config.configItems.init_config_items(configJson)
 
@@ -110,24 +128,22 @@ def init_database_and_checks(log, config: configuration.AppConfig, update_percen
     config.device_under_test_id = config.db.create("device_under_test", device_under_test_data)
 
     log(f"Device Under Test créé avec l'ID {config.device_under_test_id}.", "purple")
-
     step_name_id = config.db.create("step_name",
         {"device_under_test_id": config.device_under_test_id, "step_name": os.path.splitext(os.path.basename(__file__))[0]}
     )
-
-    # Create the data dictionary to be inserted into skvp_json
-    data = {
+    
+    datas_pdf = {
         "device_under_test_id": config.device_under_test_id,
-        "operator": operator.to_dict() if hasattr(operator, 'to_dict') else vars(operator),
-        "product_list": config.arg.product_list,  # already a dictionary
-        "parameters_group": parameters_group,   # already a list of dictionaries
-        "parameters": parameters,               # already a list of dictionaries
+        "operator": config.arg.operator,
+        "date": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "test_information": test_information,
+        "script": script,
+        "parameters": {f"parameters_{i}": parameter for i, parameter in enumerate(parameters)},
+        "id_config": id
     }
 
-    config.save_value(step_name_id, "VERSION", VERSION)
-    config.save_value(step_name_id, "data_used_for_test", json.dumps(data, indent=4, ensure_ascii=False, default=str))
-    config.save_value(step_name_id, "id_fichier_config", id)
-
+    config.save_value(step_name_id, "data_used_for_test", json.dumps(datas_pdf, indent=4, ensure_ascii=False, default=str))
+    
     return 0, step_name_id
 
 def init_target(log, config: configuration.AppConfig):

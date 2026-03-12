@@ -7,14 +7,14 @@ def update_submodules():
         project_root = os.path.dirname(os.path.abspath(__file__))
         os.chdir(project_root)
 
-        print("🔄 Mise à jour des submodules...")
+        print("Mise a jour des submodules...")
         subprocess.run(["git", "submodule", "update", "--init", "--recursive", "--remote"], check=True)
-        print("✅ Submodules à jour.")
+        print("Submodules a jour.")
 
     except subprocess.CalledProcessError as e:
-        print(f"❌ Erreur lors de la mise à jour des submodules : {e}")
+        print(f"Erreur lors de la mise a jour des submodules : {e}")
     except Exception as e:
-        print(f"❌ Erreur inattendue : {e}")
+        print(f"Erreur inattendue : {e}")
 
 # Appelle la fonction automatiquement à l'ouverture du script
 if __name__ == "__main__":

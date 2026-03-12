@@ -73,7 +73,7 @@ def check_git_status():
         print("Veuillez faire un pull ou push selon le cas.")
         return False
     
-    print("✓ Repository Git à jour")
+    print("Repository Git a jour")
     return True
 
 
@@ -115,7 +115,7 @@ def update_hash_git_in_file(new_hash):
         with open(configuration_py_path, 'w', encoding='utf-8') as file:
             file.write(new_content)
         
-        print(f"✓ HASH_GIT mise à jour avec: {new_hash}")
+        print(f"HASH_GIT mise a jour avec: {new_hash}")
         return True
         
     except Exception as e:
@@ -129,21 +129,21 @@ def set_git_hash_git():
 
     # Vérifier l'état Git
     if not check_git_status():
-        print("\n❌ Mise à jour annulée - Repository Git non à jour")
+        print("\nMise a jour annulee - Repository Git non a jour")
         return False
     
     # Récupérer le hash Git
     git_hash = get_git_hash()
     if git_hash is None:
-        print("\n❌ Mise à jour annulée - Impossible de récupérer le hash Git")
+        print("\nMise a jour annulee - Impossible de recuperer le hash Git")
         return False
     
     # Mettre à jour HASH_GIT
     if not update_hash_git_in_file(git_hash):
-        print("\n❌ Mise à jour annulée - Impossible de mettre à jour HASH_GIT")
+        print("\nMise a jour annulee - Impossible de mettre a jour HASH_GIT")
         return False
 
-    print("\n✅ HASH_GIT mise à jour avec le hash Git")
+    print("\nHASH_GIT mise a jour avec le hash Git")
     return True
 
 
@@ -152,10 +152,10 @@ def set_debug_hash_git():
     print("=== Remise de HASH_GIT à DEBUG ===")
 
     if not update_hash_git_in_file("DEBUG"):
-        print("\n❌ Erreur lors de la remise à DEBUG")
+        print("\nErreur lors de la remise a DEBUG")
         return False
 
-    print("\n✅ HASH_GIT remis à DEBUG")
+    print("\nHASH_GIT remis a DEBUG")
     return True
 
 

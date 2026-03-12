@@ -123,6 +123,56 @@ def update_hash_git_in_file(new_hash):
         return False
 
 
+def increment_version(version_value):
+    """Incrémente le dernier segment numérique d'une version (ex: V1.0.0 -> V1.0.1)."""
+    match = re.match(r'^(.*?)(\d+)$', version_value)
+    if not match:
+        return None
+
+    prefix = match.group(1)
+    last_number = match.group(2)
+    incremented = str(int(last_number) + 1).zfill(len(last_number))
+    return f"{prefix}{incremented}"
+
+
+def bump_version_in_file():
+    """Incrémente la variable VERSION dans configuration.py."""
+    print("=== Incrementation de VERSION ===")
+    configuration_py_path = "configuration.py"
+
+    if not os.path.exists(configuration_py_path):
+        print(f"Erreur: Le fichier {configuration_py_path} n'existe pas")
+        return False
+
+    try:
+        with open(configuration_py_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+
+        pattern = r'(VERSION\s*=\s*["\'])([^"\']+)(["\'])'
+        match = re.search(pattern, content)
+        if not match:
+            print("Erreur: La variable VERSION n'a pas ete trouvee")
+            return False
+
+        current_version = match.group(2)
+        new_version = increment_version(current_version)
+        if new_version is None:
+            print(f"Erreur: Format de VERSION non supporte: {current_version}")
+            return False
+
+        new_content = re.sub(pattern, rf'\1{new_version}\3', content, count=1)
+
+        with open(configuration_py_path, 'w', encoding='utf-8') as file:
+            file.write(new_content)
+
+        print(f"VERSION incrementee: {current_version} -> {new_version}")
+        return True
+
+    except Exception as e:
+        print(f"Erreur lors de l'incrementation de VERSION: {e}")
+        return False
+
+
 def set_git_hash_git():
     """Met à jour HASH_GIT avec le hash Git (pour avant compilation)"""
     print("=== Mise à jour de HASH_GIT avec le hash Git ===")
@@ -166,8 +216,8 @@ def main():
     )
     parser.add_argument(
         "action",
-        choices=["git", "debug"],
-        help="Action à effectuer: 'git' pour mettre le hash Git, 'debug' pour remettre à DEBUG"
+        choices=["git", "debug", "bump"],
+        help="Action à effectuer: 'git' pour mettre le hash Git, 'debug' pour remettre à DEBUG, 'bump' pour incrementer VERSION"
     )
     
     args = parser.parse_args()
@@ -177,6 +227,8 @@ def main():
         success = set_git_hash_git()
     elif args.action == "debug":
         success = set_debug_hash_git()
+    elif args.action == "bump":
+        success = bump_version_in_file()
 
     sys.exit(0 if success else 1)
 

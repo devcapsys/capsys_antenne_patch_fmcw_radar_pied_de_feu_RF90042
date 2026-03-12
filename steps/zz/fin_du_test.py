@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, sys
+import os, sys, winsound, time, json
 if __name__ == "__main__":
     BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     if BASE_DIR not in sys.path:
@@ -53,7 +53,35 @@ def run_step(log, config: configuration.AppConfig, update_percentage=lambda x: N
         log("Le port série du patch n'avait pas été initialisé.", "yellow")
         success = 2
 
+    # Beep PC
+    for _ in range(3):
+        winsound.Beep(1000, 200)  # 1000 Hz pendant 200 ms
+        time.sleep(0.2)
+
     if success == 0:
+        try:
+            # Save into file config.weariness_threshold if it exists
+            if hasattr(config, "weariness_threshold") and config.weariness_threshold is not None:
+                weariness_file_path = configuration.USER_PATH_ROOT + config.configItems.bench_wear.path
+                bench_wear_data = {}
+
+                # Read existing JSON content to preserve other keys.
+                if os.path.exists(weariness_file_path):
+                    try:
+                        with open(weariness_file_path, 'r', encoding='utf-8') as f:
+                            loaded_data = json.load(f)
+                            if isinstance(loaded_data, dict):
+                                bench_wear_data = loaded_data
+                    except Exception:
+                        bench_wear_data = {}
+
+                bench_wear_data[configuration.NAME_GUI] = config.weariness_threshold + 1
+
+                with open(weariness_file_path, 'w', encoding='utf-8') as f:
+                    json.dump(bench_wear_data, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            log(f"Erreur lors de la mise à jour du fichier de seuils de banc de test : {e}", "yellow")
+            success = 2
         return_msg["infos"].append("Nettoyage effectué avec succès.")
         return success, return_msg
     elif success == 2:

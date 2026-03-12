@@ -11,10 +11,10 @@ from modules.capsys_wrapper_tm_t20iii.capsys_wrapper_tm_t20III import PrinterDC 
 # Initialize global variables
 USER_PATH_ROOT = os.path.expanduser(r"~")
 CURRENT_PATH = os.path.dirname(__file__)
-NAME_GUI = "Test antenne patch FMCW radar pied de feu RF90042"
+NAME_GUI = "ANTENNE_PATCH_RF81005_FMCW_RF90042"
 CONFIG_JSON_NAME = "config_antenne_patch_fmcw_radar_pied_de_feu_RF90042"
 PRODUCT_LIST_ID_DEFAULT = "3"
-VERSION = "V1.2.3"
+VERSION = "V1.3.3"
 HASH_GIT = "DEBUG" # Will be replaced by the Git hash when compiled with command .\build.bat
 AUTHOR = "Thomas GERARDIN"
 PRINTER_NAME = "EPSON TM-T20III Receipt"
@@ -23,6 +23,43 @@ def get_project_path(*paths):
     """Return the absolute path from the project root, regardless of current working directory."""
     return os.path.abspath(os.path.join(os.path.dirname(__file__), *paths))
 
+def request_user_input(config, title: str, message: str) -> Optional[str]:
+    """
+    Request text input from the user.
+    
+    If running from GUI (main.py), displays a dialog box.
+    If running directly (debug mode), uses console input().
+    
+    Args:
+        config: AppConfig instance
+        title: Title of the dialog box (GUI mode only)
+        message: Message to display to the user
+    
+    Returns:
+        The text entered by the user, or None if cancelled
+    """
+    import time
+    
+    user_input_result = {"text": None, "received": False}
+    
+    def handle_user_input(text):
+        user_input_result["text"] = text
+        user_input_result["received"] = True
+    
+    if config.test_thread is not None:
+        # GUI mode with dialog box
+        config.test_thread.request_user_text_input(title, message, handle_user_input)
+        
+        # Wait for user input (without timeout)
+        while not user_input_result["received"]:
+            time.sleep(0.1)
+        
+        return user_input_result["text"]
+    else:
+        # Debug mode with console input
+        user_text = input(message + " ")
+        return user_text if user_text else None
+    
 class SerialPatchFmcw(SerialInstrumentManager):
     def __init__(self, port=None, baudrate=115200, timeout=0.3, debug=False):
         SerialInstrumentManager.__init__(self, port, baudrate, timeout, debug)
@@ -57,6 +94,7 @@ class SerialTargetCapsys(SerialInstrumentManager):
 class ConfigItems:
     """Container for all configuration items used in the test sequence."""
     key_map = {
+        "BENCH_WEAR": "bench_wear",
         "CIBLE": "target",
         "MULTIMETRE_COURANT": "multimeter_current",
         "ALIMENTATION": "alim",
@@ -85,6 +123,9 @@ class ConfigItems:
                 attr_name,
                 ConfigItems.ConfigItem(                
                     key=json_key,
+                    path=item.get("path"),
+                    max_value=item.get("max_value"),
+                    warning_value=item.get("warning_value"),
                     port=item.get("port"),
                     minimum=item.get("minimum"),
                     maximum=item.get("maximum"),
@@ -101,6 +142,9 @@ class ConfigItems:
         def __init__(
             self,
             key = "",
+            path = "",
+            max_value = None,
+            warning_value = None,
             port = "",
             minimum = 0.0,
             maximum = 0.0,
@@ -112,6 +156,9 @@ class ConfigItems:
         ):
             """Initialize a ConfigItem with optional parameters for test configuration."""
             self.key = key
+            self.path = path
+            self.max_value = max_value
+            self.warning_value = warning_value
             self.port = port
             self.minimum = minimum
             self.maximum = maximum
@@ -123,6 +170,7 @@ class ConfigItems:
     
     def __init__(self):
         """Initialize all ConfigItem attributes for different test parameters."""
+        self.bench_wear = self.ConfigItem()
         self.target = self.ConfigItem()
         self.multimeter_current = self.ConfigItem()
         self.alim = self.ConfigItem()
@@ -167,6 +215,7 @@ class AppConfig:
         self.db: Optional[GenericDatabaseManager] = None
         self.device_under_test_id: Optional[int] = None
         self.configItems = ConfigItems()
+        self.weariness_threshold: Optional[int] = None
         self.max_retries = 2
         self.multimeter_current: Optional[Mp730424Manager] = None
         self.alim: Optional[alimentation_rsd3305p.Rsd3305PManager] = None

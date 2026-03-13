@@ -14,10 +14,10 @@ CURRENT_PATH = os.path.dirname(__file__)
 NAME_GUI = "ANTENNE_PATCH_RF81005_FMCW_RF90042"
 CONFIG_JSON_NAME = "config_antenne_patch_fmcw_radar_pied_de_feu_RF90042"
 PRODUCT_LIST_ID_DEFAULT = "3"
-VERSION = "V1.3.3"
+VERSION = "V1.4.3"
 HASH_GIT = "DEBUG" # Will be replaced by the Git hash when compiled with command .\build.bat
 AUTHOR = "Thomas GERARDIN"
-PRINTER_NAME = "EPSON TM-T20III Receipt"
+PRINTER_NAME = ["EPSON TM-T20III Receipt", "EPSON TM-T(203dpi) Receipt6"]
 
 def get_project_path(*paths):
     """Return the absolute path from the project root, regardless of current working directory."""
